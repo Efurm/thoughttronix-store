@@ -34,6 +34,17 @@ def test_available_manager_excludes_unavailable(product, unavailable_product):
     assert unavailable_product not in available
 
 
+def test_featured_manager_returns_only_featured(product, unavailable_product):
+    assert not product.is_featured  # products are not featured by default
+    product.is_featured = True
+    product.save()
+
+    featured = Product.objects.featured()
+
+    assert product in featured
+    assert unavailable_product not in featured
+
+
 def test_search_matches_name_and_description(product, unavailable_product):
     assert product in Product.objects.search("home hub")
     assert product in Product.objects.search("seven-microphone")

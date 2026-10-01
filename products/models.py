@@ -51,6 +51,9 @@ class ProductQuerySet(models.QuerySet):
     def available(self):
         return self.filter(is_available=True)
 
+    def featured(self):
+        return self.filter(is_featured=True)
+
     def search(self, text):
         """Simple icontains search over name and description."""
         return self.filter(
@@ -65,6 +68,7 @@ class Product(models.Model):
     description = models.TextField(blank=True)
     price = models.DecimalField(max_digits=10, decimal_places=2)
     is_available = models.BooleanField(default=True)
+    is_featured = models.BooleanField(default=False)
     category = models.ForeignKey(
         Category,
         on_delete=models.PROTECT,
