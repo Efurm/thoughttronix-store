@@ -27,3 +27,22 @@ Each entry has this shape:
     - **Outcome:** what was built and what was kept
     - **Deviations:** recommendations overridden, follow-up questions asked
     - **Sideways:** failures, wrong turns, and how they were caught
+
+## 2026-09-30 — Session-log request only (no code work this session)
+
+### Prompts
+1. Append a session log to PROMPTS.md at the repo root, under today's date,
+   newest entry at the top. Record every prompt I gave you this session, in
+   order, including any corrections. End the entry with a short summary:
+   the outcome, any places where I deviated from a recommended answer or
+   asked follow-up questions, and anything that went sideways.
+
+### Summary
+- **Outcome:** This entry is the only change. The session opened with the
+  log request, so there was no other work to record. It is the first entry
+  in the log.
+- **Deviations:** None. No recommendations were made and no follow-up
+  questions were asked.
+- **Sideways:** Nothing went wrong. Earlier commits (e.g. the featured badge
+  and its migration) came from previous sessions that were never logged here,
+  so this log doesn't cover them.
