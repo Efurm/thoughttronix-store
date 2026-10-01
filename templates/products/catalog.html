@@ -69,6 +69,9 @@
             <a href="{{ product.get_absolute_url }}" class="link-hover">{{ product.name }}</a>
           </h2>
           <div class="flex flex-wrap gap-2">
+            {% if product.is_featured %}
+              <span class="badge badge-secondary">★ Featured</span>
+            {% endif %}
             <span class="badge badge-outline">{{ product.category.name }}</span>
             {% if not product.is_available %}
               <span class="badge badge-warning badge-outline">Unavailable</span>
