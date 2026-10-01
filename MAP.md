@@ -1,0 +1,9 @@
+App1: Accounts - It shows the name of the account in use as well as the job title , which reflects how much permissions and level of authentications they have.
+App2: Products - it has the catalog of Category, Product, and Tag models as well as the browsing views labeled gatalog,detail, and category
+App3: Orders - It has the checkout cart as well as the order details and history for the customer to access and staff access for updating order statuses
+App4: Dashboard - A staff only accessible analysis dashboard that shows important information such as revenue, order volume, as well as top products in a certain time period.
+2.Browser to home page - It gets config/urls.py which tries each included app and then grabs products/urls.py(Catalog) which then pulls up the CatalogView and uses the templates/products/catalog.html to render the navigation and base areas using templates/base.html and catalog.html fills up the page with content.
+3.Cart model - it creates a cart where certain methods are able to add or subtract items from the cart and keep track of how many items are in the cart. A interesting method to me is the for_user(cls,user) method because this creates the entire cart for every view to call upon.
+4.Products when Category is deleted - If a category is attempted to be deleted with products still in it, the deletion itself is refused. on_delete=models.PROTECT is the code that decides what if it is possible to delete a category.
+5.Where test live - Tests are inside each app. conftest.py provides shared fixtures that builds a demo world capable of letting a test pull exactly the object it needs.
+6.What took me the most work to understand was what all of the fixtures in the cart model do. I asked the agent to go into more detail about what each fixture produces and explain the process.
