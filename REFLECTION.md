@@ -1,0 +1,6 @@
+## Featured Products.
+Question 1 - Trace the feature. Explain how marking a product as featured in the admin interface causes the badge to appear in the storefront. Explain the files involved and the code logic. Marking a product as featured reflects on the product row where other templates check. It starts from products/model.py checking if a product is featured or not, where it then goes into checking the admin ModelForm to see if it has changed and where the templates read it and make changes to their UI.
+
+Question 2 - How you verified it. Describe how you confirmed the feature works. Name the pages you checked in the browser. I confirmed the feature works by checking each product through the product page and checking their description to see if the featured tag was there.
+
+Question 3 - Judgement. Describe one challenge, unexpected result, or edge case you encountered. Explain what you did to troubleshoot it. One challenge that I came across was making sure the migration was properly implemented due to claude immediately migrating without asking for permission. I troubleshooted it by manually checking the file and running test code to make sure the code properly worked. 
