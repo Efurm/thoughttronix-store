@@ -510,9 +510,9 @@ COUPONS = [
         12,
         True,
     ),
-    ("SUMMR", "Summer 2026", 20, [], -100, -9, True),
-    ("WINTR", "Winter 2026", 10, [], 60, 150, True),
-    ("OOPSY", "Pricing mistake", 50, [], -5, 30, False),
+    ("SUNNY", "Summer 2026", 20, [], -100, -9, True),
+    ("FROST", "Winter 2026", 10, [], 60, 150, True),
+    ("ERROR", "Pricing mistake", 50, [], -5, 30, False),
 ]
 
 

@@ -105,7 +105,7 @@ def test_malformed_codes_are_rejected(cart, cart_item, coupon, code):
 
 
 def test_an_unknown_code_is_rejected(cart, cart_item, coupon):
-    assert rejection("WINTR", cart, cart.user) == "We don't recognize that code."
+    assert rejection("FROST", cart, cart.user) == "We don't recognize that code."
 
 
 def test_an_expired_code_says_when_it_expired(cart, cart_item, coupon):
@@ -250,7 +250,7 @@ def test_apply_previews_the_discount(client, cart, cart_item, coupon):
     assert 'id="place-order-total" hx-swap-oob="true">$594.98' in content
 
 
-@pytest.mark.parametrize("posted", [{"coupon_code": "SUMMR"}, {"coupon_code": "!!"}])
+@pytest.mark.parametrize("posted", [{"coupon_code": "SUNNY"}, {"coupon_code": "!!"}])
 def test_apply_shows_a_message_never_an_error_page(
     client, cart, cart_item, coupon, posted
 ):
@@ -339,7 +339,7 @@ def test_the_order_pages_show_the_discount(client, cart, cart_item, coupon):
 
 def coupon_form_data(**overrides):
     return {
-        "code": "WINTR",
+        "code": "FROST",
         "name": "Winter",
         "percent_off": "10",
         "starts_at": "",
@@ -370,12 +370,12 @@ def test_staff_create_a_coupon_without_engineering(client, staff_user, clock):
 
     response = client.post(
         reverse("orders:manage_coupon_create"),
-        coupon_form_data(code=" wintr ", products=[clock.pk]),
+        coupon_form_data(code=" frost ", products=[clock.pk]),
     )
 
     assert response.status_code == HTTPStatus.FOUND
     coupon = Coupon.objects.get()
-    assert coupon.code == "WINTR"
+    assert coupon.code == "FROST"
     assert list(coupon.products.all()) == [clock]
     assert coupon.created_by == staff_user
     assert coupon.updated_by == staff_user
