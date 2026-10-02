@@ -5,12 +5,18 @@ annotations: field types validate (``EmailField``), field arguments
 validate (``required``, ``max_length``, ``ChoiceField``), and the
 ``validators=[...]`` list carries the rest. No ``clean_*`` methods
 and no ``clean()`` — none of its current rules need imperative validation.
+
+The back-office ``CouponForm`` lives here too; its cross-field date
+check is the one rule that does need ``clean()``.
 """
 
 from django import forms
 from django.core.validators import RegexValidator
 
-from .models import Order
+from products.forms import StyledModelForm
+from products.models import Product
+
+from .models import Coupon, Order
 from .validators import validate_card_number, validate_expiry
 
 US_STATES = [
@@ -108,6 +114,10 @@ class CheckoutForm(forms.Form):
     )
     card_cvv = forms.CharField(label="CVV", max_length=4, validators=[cvv_validator])
 
+    # Optional. Whether a code applies depends on the cart and the customer,
+    # so it's judged by ``quote_coupon`` (via ``place_order``), not here.
+    coupon_code = forms.CharField(label="Discount code", required=False)
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         for field in self.fields.values():
@@ -140,3 +150,48 @@ class OrderStatusForm(forms.ModelForm):
         model = Order
         fields = ["status"]
         widgets = {"status": forms.Select(attrs={"class": "select"})}
+
+
+class CouponForm(StyledModelForm):
+    """Create or edit a coupon in the back office.
+
+    The code is trimmed and uppercased on the way in, and locked once an
+    order has used it — order history must keep matching a real coupon.
+    Everything else stays editable; past orders hold their own copy.
+    """
+
+    class Meta:
+        model = Coupon
+        fields = [
+            "code",
+            "name",
+            "percent_off",
+            "products",
+            "starts_at",
+            "ends_at",
+            "is_active",
+        ]
+        widgets = {
+            "starts_at": forms.DateTimeInput(
+                attrs={"type": "datetime-local"}, format="%Y-%m-%dT%H:%M"
+            ),
+            "ends_at": forms.DateTimeInput(
+                attrs={"type": "datetime-local"}, format="%Y-%m-%dT%H:%M"
+            ),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["products"].queryset = Product.objects.order_by("name")
+        if self.instance.pk and self.instance.is_used:
+            self.fields["code"].disabled = True
+
+    def clean_code(self):
+        return self.cleaned_data["code"].strip().upper()
+
+    def clean(self):
+        cleaned = super().clean()
+        starts_at, ends_at = cleaned.get("starts_at"), cleaned.get("ends_at")
+        if starts_at and ends_at and starts_at >= ends_at:
+            self.add_error("ends_at", "The end must come after the start.")
+        return cleaned

@@ -1,0 +1,97 @@
+{% extends "backoffice/base.html" %}
+
+{% block title %}Coupons — Back office{% endblock %}
+
+{% block backoffice %}
+  <div class="mb-4 flex flex-wrap items-center justify-between gap-4">
+    <h2 class="text-xl font-semibold">
+      {{ coupons|length }} coupon{{ coupons|length|pluralize }}
+    </h2>
+    <a href="{% url 'orders:manage_coupon_create' %}" class="btn btn-primary btn-sm">
+      + Add coupon
+    </a>
+  </div>
+
+  {% if coupons %}
+    <div class="overflow-x-auto rounded-box bg-base-100 shadow-md">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Code</th>
+            <th>Discount</th>
+            <th>Runs</th>
+            <th>Uses</th>
+            <th>Status</th>
+            <th class="text-right">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for coupon in coupons %}
+            <tr>
+              <td>
+                <a href="{% url 'orders:manage_coupon_update' coupon.pk %}"
+                   class="link-hover font-mono font-semibold">{{ coupon.code }}</a>
+                {% if coupon.name %}
+                  <p class="text-xs italic opacity-60">{{ coupon.name }}</p>
+                {% endif %}
+              </td>
+              <td>
+                {{ coupon.percent_off }}% off
+                <p class="text-xs opacity-60">
+                  {% if coupon.product_count %}
+                    {{ coupon.product_count }} product{{ coupon.product_count|pluralize }}
+                  {% else %}
+                    whole order
+                  {% endif %}
+                </p>
+              </td>
+              <td class="text-sm">
+                {% if coupon.starts_at %}{{ coupon.starts_at|date:"M j, Y" }}{% else %}now{% endif %}
+                → {{ coupon.ends_at|date:"M j, Y" }}
+              </td>
+              <td>{{ coupon.use_count }}</td>
+              <td>
+                {% with status=coupon.status %}
+                  {% if status == "live" %}
+                    <span class="badge badge-success badge-outline">Live</span>
+                  {% elif status == "scheduled" %}
+                    <span class="badge badge-info badge-outline">Scheduled</span>
+                  {% elif status == "expired" %}
+                    <span class="badge badge-ghost">Expired</span>
+                  {% else %}
+                    <span class="badge badge-warning badge-outline">Retired</span>
+                  {% endif %}
+                {% endwith %}
+              </td>
+              <td class="whitespace-nowrap text-right">
+                <a href="{% url 'orders:manage_coupon_update' coupon.pk %}"
+                   class="btn btn-ghost btn-xs">Edit</a>
+                {% if coupon.use_count %}
+                  {% if coupon.is_active %}
+                    <form method="post" action="{% url 'orders:manage_coupon_retire' coupon.pk %}"
+                          class="inline">
+                      {% csrf_token %}
+                      <button type="submit" class="btn btn-ghost btn-xs text-warning">Retire</button>
+                    </form>
+                  {% endif %}
+                {% else %}
+                  <a href="{% url 'orders:manage_coupon_delete' coupon.pk %}"
+                     class="btn btn-ghost btn-xs text-error">Delete</a>
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="py-16 text-center">
+      <p class="text-5xl">🎟️</p>
+      <p class="mt-4 text-xl font-semibold">No coupons yet</p>
+      <p class="mt-2 opacity-70">Every thought is full price. For now.</p>
+      <a href="{% url 'orders:manage_coupon_create' %}" class="btn btn-primary btn-sm mt-6">
+        Create the first code
+      </a>
+    </div>
+  {% endif %}
+{% endblock %}

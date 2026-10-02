@@ -45,13 +45,14 @@ def make_order(user, total, *, days_ago=0, status=Order.Status.PLACED):
     )
 
 
-def add_item(order, name, unit_price, quantity=1):
+def add_item(order, name, unit_price, quantity=1, discount="0.00"):
     return OrderItem.objects.create(
         order=order,
         product=None,
         product_name=name,
         unit_price=Decimal(unit_price),
         quantity=quantity,
+        discount=Decimal(discount),
     )
 
 
@@ -276,3 +277,46 @@ def test_a_quiet_period_is_not_the_empty_store(client, staff_user, customer):
 
     assert "No sales yet" not in page
     assert "No sales in this period" in page
+
+
+# --- Coupon discounts -----------------------------------------------------------
+
+
+def test_discounts_given_sums_sold_orders_in_the_period(customer):
+    recent = make_order(customer, "90.00")
+    recent.discount_total = Decimal("10.00")
+    recent.save()
+    old = make_order(customer, "45.00", days_ago=60)
+    old.discount_total = Decimal("5.00")
+    old.save()
+    cancelled = make_order(customer, "80.00", status=Order.Status.CANCELLED)
+    cancelled.discount_total = Decimal("20.00")
+    cancelled.save()
+
+    assert queries.discounts_given() == Decimal("15.00")
+    assert queries.discounts_given(since(30)) == Decimal("10.00")
+
+
+def test_discounts_given_is_zero_without_coupons(customer):
+    make_order(customer, "90.00")
+
+    assert queries.discounts_given() == Decimal("0.00")
+
+
+def test_top_products_revenue_is_net_of_line_discounts(customer):
+    order = make_order(customer, "85.00")
+    add_item(order, "Whisper Alarm Clock", "50.00", quantity=2, discount="15.00")
+
+    assert queries.top_products()[0]["revenue"] == Decimal("85.00")
+
+
+def test_the_dashboard_shows_discounts_given(client, staff_user, customer):
+    order = make_order(customer, "90.00")
+    order.discount_total = Decimal("10.00")
+    order.save()
+    client.force_login(staff_user)
+
+    response = client.get(reverse("dashboard:index"))
+
+    assert "Discounts given" in response.content.decode()
+    assert response.context["discounts"] == Decimal("10.00")

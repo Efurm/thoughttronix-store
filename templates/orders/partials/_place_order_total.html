@@ -1,0 +1,3 @@
+{# The checkout total on the place-order button; swapped out-of-band when a code is applied. #}
+{% load humanize %}
+<span id="place-order-total" {% if oob_total %}hx-swap-oob="true"{% endif %}>${{ checkout_total|intcomma }}</span>

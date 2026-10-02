@@ -1,0 +1,65 @@
+{# The checkout's order summary and discount code — swapped in place by the Apply button. #}
+{# The code input belongs to the checkout form (form="checkout-form"), so it's submitted with the order. #}
+{% load humanize %}
+<div class="card bg-base-100 shadow-md">
+  <div class="card-body">
+    <h2 class="card-title">Your order</h2>
+    <ul class="space-y-2">
+      {% for item, discount in summary_lines %}
+        <li class="text-sm">
+          <div class="flex justify-between gap-4">
+            <span>{{ item.quantity }} × {{ item.product.name }}</span>
+            <span class="whitespace-nowrap">${{ item.line_total|intcomma }}</span>
+          </div>
+          {% if discount %}
+            <div class="flex justify-between gap-4 text-success">
+              <span class="pl-4">{{ quote.coupon.percent_off }}% off</span>
+              <span class="whitespace-nowrap">−${{ discount|intcomma }}</span>
+            </div>
+          {% endif %}
+        </li>
+      {% endfor %}
+    </ul>
+    <div class="divider my-2"></div>
+    {% if quote %}
+      <p class="flex justify-between text-sm">
+        <span>Subtotal</span>
+        <span>${{ quote.subtotal|intcomma }}</span>
+      </p>
+      <p class="flex justify-between text-sm text-success">
+        <span>Discount <span class="badge badge-success badge-sm font-mono">{{ quote.coupon.code }}</span></span>
+        <span>−${{ quote.discount|intcomma }}</span>
+      </p>
+    {% endif %}
+    <p class="flex justify-between font-semibold">
+      <span>Total</span>
+      <span class="text-primary">${{ checkout_total|intcomma }}</span>
+    </p>
+
+    <div class="divider my-2"></div>
+    <label class="label mb-1" for="coupon-code">Discount code</label>
+    <div class="join w-full">
+      <input type="text" id="coupon-code" name="coupon_code" form="checkout-form"
+             value="{{ coupon_code }}" maxlength="20" autocomplete="off"
+             placeholder="5 letters"
+             class="input join-item w-full font-mono uppercase {% if coupon_error %}input-error{% endif %}">
+      <button type="button" class="btn join-item"
+              hx-post="{% url 'orders:apply_coupon' %}"
+              hx-include="#coupon-code"
+              hx-target="#order-summary">Apply</button>
+    </div>
+    {% if coupon_error %}
+      <p class="mt-1 text-sm text-error" role="alert">{{ coupon_error }}</p>
+    {% elif quote %}
+      <p class="mt-1 text-sm text-success">
+        {{ quote.coupon.code }} applied — {{ quote.coupon.percent_off }}% off.
+      </p>
+    {% endif %}
+    <p class="mt-1 text-xs opacity-60">Each code can be used once per account.</p>
+
+    <a href="{% url 'orders:cart' %}" class="link link-hover mt-2 text-sm opacity-70">
+      Edit cart
+    </a>
+  </div>
+</div>
+{% if oob_total %}{% include "orders/partials/_place_order_total.html" %}{% endif %}

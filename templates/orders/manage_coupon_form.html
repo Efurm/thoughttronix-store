@@ -1,0 +1,37 @@
+{% extends "backoffice/base.html" %}
+
+{% block title %}
+  {% if form.instance.pk %}Edit coupon{% else %}New coupon{% endif %} — Back office
+{% endblock %}
+
+{% block backoffice %}
+  <div class="card mx-auto max-w-2xl bg-base-100 shadow-md">
+    <div class="card-body">
+      <h2 class="card-title">
+        {% if form.instance.pk %}Edit <span class="font-mono">{{ form.instance.code }}</span>{% else %}New coupon{% endif %}
+      </h2>
+      {% if form.instance.pk and form.instance.is_used %}
+        <div class="alert alert-warning text-sm" role="alert">
+          <span>
+            Customers have already used this code, so it can't be renamed or deleted.
+            Changes only affect future checkouts. Customers who already used it can't use
+            it again — create a new code for a fresh promotion.
+          </span>
+        </div>
+      {% endif %}
+      <form method="post" class="mt-2 space-y-4">
+        {% csrf_token %}
+        {% for error in form.non_field_errors %}
+          <div class="alert alert-error" role="alert"><span>{{ error }}</span></div>
+        {% endfor %}
+        {% for field in form %}
+          {% include "products/partials/_field.html" %}
+        {% endfor %}
+        <div class="mt-2 flex items-center justify-end gap-2">
+          <a href="{% url 'orders:manage_coupons' %}" class="btn btn-ghost">Cancel</a>
+          <button type="submit" class="btn btn-primary">Save coupon</button>
+        </div>
+      </form>
+    </div>
+  </div>
+{% endblock %}
