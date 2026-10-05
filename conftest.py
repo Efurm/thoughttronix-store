@@ -4,12 +4,14 @@ Shared test data lives here as plain fixtures — no factories. The suite
 grows with the project; tests never invoke the seed command.
 """
 
+from datetime import timedelta
 from decimal import Decimal
 
 import pytest
 from django.contrib.auth import get_user_model
+from django.utils import timezone
 
-from orders.models import Cart, CartItem
+from orders.models import Cart, CartItem, Coupon
 from products.models import Category, Product, Tag
 
 
@@ -72,3 +74,16 @@ def cart(customer):
 @pytest.fixture
 def cart_item(cart, product):
     return CartItem.objects.create(cart=cart, product=product, quantity=2)
+
+
+@pytest.fixture
+def coupon(db):
+    """A live, order-wide 15%-off code that ran from yesterday to next month."""
+    now = timezone.now()
+    return Coupon.objects.create(
+        code="FALLS",
+        name="Fall 2026",
+        percent_off=15,
+        starts_at=now - timedelta(days=1),
+        ends_at=now + timedelta(days=30),
+    )

@@ -22,7 +22,7 @@
       <div class="stat">
         <div class="stat-title">Total revenue</div>
         <div class="stat-value text-primary">${{ revenue|floatformat:2|intcomma }}</div>
-        <div class="stat-desc">{{ period_label|lower }}, excluding cancelled orders</div>
+        <div class="stat-desc">{{ period_label|lower }}, net of discounts, excluding cancelled orders</div>
       </div>
       <div class="stat">
         <div class="stat-title">Orders</div>
@@ -33,6 +33,11 @@
         <div class="stat-title">Average order value</div>
         <div class="stat-value">${{ average_order_value|floatformat:2|intcomma }}</div>
         <div class="stat-desc">revenue ÷ orders</div>
+      </div>
+      <div class="stat">
+        <div class="stat-title">Discounts given</div>
+        <div class="stat-value">${{ discounts|floatformat:2|intcomma }}</div>
+        <div class="stat-desc">coupon savings, not in revenue</div>
       </div>
     </div>
 

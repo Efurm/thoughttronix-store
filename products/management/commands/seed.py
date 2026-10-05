@@ -21,7 +21,7 @@ from django.db import transaction
 from django.utils import timezone
 from django.utils.text import slugify
 
-from orders.models import Cart, Order, OrderItem
+from orders.models import Cart, Coupon, Order, OrderItem
 from products.models import Category, Product, Tag
 
 TAGS = [
@@ -496,6 +496,25 @@ SEED_ADDRESSES = [
 
 CARD_LAST4S = ["4242", "4111", "1881", "0005"]
 
+# One coupon per state, so checkout shows every message and the back
+# office every badge. (code, promotion, percent, product slugs,
+# days from now it started, days from now it ends, active)
+COUPONS = [
+    ("FALLS", "Fall 2026", 15, [], -10, 60, True),
+    (
+        "QUIET",
+        "Accessories week",
+        25,
+        ["travel-faraday-case", "whisper-alarm-clock"],
+        -2,
+        12,
+        True,
+    ),
+    ("SUNNY", "Summer 2026", 20, [], -100, -9, True),
+    ("FROST", "Winter 2026", 10, [], 60, 150, True),
+    ("ERROR", "Pricing mistake", 50, [], -5, 30, False),
+]
+
 
 class Command(BaseCommand):
     help = "Wipe and rebuild the demo world: catalog, tags, and demo accounts."
@@ -508,6 +527,7 @@ class Command(BaseCommand):
         self._create_users()
         self._create_customer_cart()
         self._create_orders()
+        self._create_coupons()
 
         self.stdout.write(
             self.style.SUCCESS(
@@ -516,6 +536,7 @@ class Command(BaseCommand):
                 f"{Product.objects.count()} products, "
                 f"{get_user_model().objects.count()} users, "
                 f"{Order.objects.count()} orders, "
+                f"{Coupon.objects.count()} coupons, "
                 f"and a live cart for 'customer'."
             )
         )
@@ -523,6 +544,7 @@ class Command(BaseCommand):
     def _wipe(self):
         """Remove everything the seed owns; the rebuild starts from zero."""
         Order.objects.all().delete()
+        Coupon.objects.all().delete()  # after orders, which protect them
         Cart.objects.all().delete()
         Product.objects.all().delete()
         Tag.objects.all().delete()
@@ -677,3 +699,19 @@ class Command(BaseCommand):
                 unit_price=product.price,
                 quantity=quantity,
             )
+
+    def _create_coupons(self):
+        now = timezone.now()
+        admin = get_user_model().objects.get(username="admin")
+        for code, name, percent, slugs, start, end, active in COUPONS:
+            coupon = Coupon.objects.create(
+                code=code,
+                name=name,
+                percent_off=percent,
+                starts_at=now + timedelta(days=start),
+                ends_at=now + timedelta(days=end),
+                is_active=active,
+                created_by=admin,
+                updated_by=admin,
+            )
+            coupon.products.set(Product.objects.filter(slug__in=slugs))

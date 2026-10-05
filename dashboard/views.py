@@ -44,6 +44,7 @@ class DashboardView(StaffRequiredMixin, TemplateView):
                 "revenue": queries.total_revenue(since),
                 "order_count": queries.order_count(since),
                 "average_order_value": queries.average_order_value(since),
+                "discounts": queries.discounts_given(since),
                 "series": series,
                 "max_revenue": max(
                     (point["revenue"] for point in series), default=Decimal("0")

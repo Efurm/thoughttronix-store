@@ -1,9 +1,10 @@
 """Dashboard aggregations — the second of the codebase's two deep modules.
 
-The interface is the product: five functions that answer the questions
+The interface is the product: six functions that answer the questions
 leadership actually asks. Every one takes an optional ``since`` cutoff
 (``None`` means all time) and excludes cancelled orders — cancelled
-revenue is money the store never keeps.
+revenue is money the store never keeps. Revenue is always net of coupon
+discounts: what customers actually paid.
 """
 
 from datetime import date, datetime, timedelta
@@ -31,6 +32,12 @@ def _sold(since: datetime | None) -> QuerySet[Order]:
 def total_revenue(since: datetime | None = None) -> Decimal:
     """Sum of order totals placed at or after ``since``."""
     return _sold(since).aggregate(revenue=Sum("total"))["revenue"] or ZERO
+
+
+def discounts_given(since: datetime | None = None) -> Decimal:
+    """Sum of coupon discounts on orders placed at or after ``since`` —
+    what promotions cost, on top of the net revenue."""
+    return _sold(since).aggregate(discounts=Sum("discount_total"))["discounts"] or ZERO
 
 
 def order_count(since: datetime | None = None) -> int:
@@ -85,8 +92,9 @@ def top_products(since: datetime | None = None, *, limit: int = 5) -> list[dict]
     """The best-selling products by revenue, best first.
 
     Grouped by the order lines' denormalized ``product_name``, so the
-    ranking reflects what was actually charged — later catalog edits and
-    deletions don't rewrite history. Each entry is ``{"product_name",
+    ranking reflects what was actually charged — net of each line's
+    coupon discount — and later catalog edits and deletions don't
+    rewrite history. Each entry is ``{"product_name",
     "revenue", "units"}``.
     """
     items = OrderItem.objects.exclude(order__status=Order.Status.CANCELLED)
@@ -96,7 +104,7 @@ def top_products(since: datetime | None = None, *, limit: int = 5) -> list[dict]
         items.values("product_name")
         .annotate(
             revenue=Sum(
-                F("unit_price") * F("quantity"),
+                F("unit_price") * F("quantity") - F("discount"),
                 output_field=DecimalField(max_digits=12, decimal_places=2),
             ),
             units=Sum("quantity"),
