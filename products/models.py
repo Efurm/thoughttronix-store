@@ -1,9 +1,13 @@
+from pathlib import PurePath
+
 from django.db import models
+from django.templatetags.static import static
 from django.urls import reverse
+from django.utils.crypto import get_random_string
 
 # Categories with a dedicated placeholder illustration; anything else
-# falls back to default.svg. No media handling in the core — placeholder
-# images are static files chosen by category.
+# falls back to default.svg. A product without a usable uploaded image
+# shows its category's placeholder (see Product.display_image_url).
 PLACEHOLDER_CATEGORIES = {
     "home-assistants",
     "neural-implants",
@@ -47,6 +51,19 @@ class Tag(models.Model):
         return self.name
 
 
+def product_image_path(product, filename):
+    """Name an uploaded image ``products/<slug>-<random suffix><ext>``.
+
+    The suffix keeps names unique and changes on every upload, so browsers
+    never show a stale cached image after a replacement. The extension
+    comes from the incoming file, which products/images.py always names
+    ``.webp``.
+    """
+    suffix = get_random_string(6, allowed_chars="abcdefghijklmnopqrstuvwxyz0123456789")
+    extension = PurePath(filename).suffix.lower()
+    return f"products/{product.slug}-{suffix}{extension}"
+
+
 class ProductQuerySet(models.QuerySet):
     def available(self):
         return self.filter(is_available=True)
@@ -75,6 +92,7 @@ class Product(models.Model):
         related_name="products",
     )
     tags = models.ManyToManyField(Tag, blank=True, related_name="products")
+    image = models.ImageField(upload_to=product_image_path, blank=True)
 
     objects = ProductQuerySet.as_manager()
 
@@ -86,3 +104,16 @@ class Product(models.Model):
 
     def get_absolute_url(self):
         return reverse("products:detail", kwargs={"slug": self.slug})
+
+    @property
+    def display_image_url(self):
+        """URL of the image to show for this product.
+
+        The uploaded image only when one is set *and* its file is actually
+        in storage; otherwise the category placeholder. Every template shows
+        product images through this property, so a missing file can never
+        reach the page as a broken image.
+        """
+        if self.image and self.image.storage.exists(self.image.name):
+            return self.image.url
+        return static(self.category.placeholder_image)
