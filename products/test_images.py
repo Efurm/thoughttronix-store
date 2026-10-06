@@ -76,3 +76,26 @@ def test_pages_never_link_a_missing_file(client, product_with_image):
         html = client.get(url).content.decode()
         assert "/media/" not in html
         assert PLACEHOLDER_URL in html
+
+
+# --- The back-office product list -----------------------------------------
+
+
+def manage_list(client, staff_user):
+    client.force_login(staff_user)
+    return client.get(reverse("products:manage_products")).content.decode()
+
+
+def test_manage_list_shows_thumbnail(client, staff_user, product_with_image):
+    assert product_with_image.image.url in manage_list(client, staff_user)
+
+
+def test_manage_list_shows_placeholder_without_image(client, staff_user, product):
+    assert PLACEHOLDER_URL in manage_list(client, staff_user)
+
+
+def test_manage_list_never_links_a_missing_file(client, staff_user, product_with_image):
+    product_with_image.image.storage.delete(product_with_image.image.name)
+    html = manage_list(client, staff_user)
+    assert "/media/" not in html
+    assert PLACEHOLDER_URL in html
