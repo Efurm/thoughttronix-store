@@ -5,21 +5,34 @@
 {% endblock %}
 
 {% block backoffice %}
-  <div class="card mx-auto max-w-2xl bg-base-100 shadow-md">
-    <div class="card-body">
-      <h2 class="card-title">
-        {% if form.instance.pk %}Edit &ldquo;{{ form.instance.name }}&rdquo;{% else %}New product{% endif %}
-      </h2>
-      <form method="post" class="mt-2 space-y-4">
-        {% csrf_token %}
-        {% for field in form %}
-          {% include "products/partials/_field.html" %}
-        {% endfor %}
-        <div class="mt-2 flex items-center justify-end gap-2">
-          <a href="{% url 'products:manage_products' %}" class="btn btn-ghost">Cancel</a>
-          <button type="submit" class="btn btn-primary">Save product</button>
-        </div>
-      </form>
+  <div class="mx-auto max-w-2xl space-y-6">
+    <div class="card bg-base-100 shadow-md">
+      <div class="card-body">
+        <h2 class="card-title">
+          {% if form.instance.pk %}Edit &ldquo;{{ form.instance.name }}&rdquo;{% else %}New product{% endif %}
+        </h2>
+        <form method="post" class="mt-2 space-y-4">
+          {% csrf_token %}
+          {% for field in form %}
+            {% include "products/partials/_field.html" %}
+          {% endfor %}
+          <div class="mt-2 flex items-center justify-end gap-2">
+            <a href="{% url 'products:manage_products' %}" class="btn btn-ghost">Cancel</a>
+            <button type="submit" class="btn btn-primary">Save product</button>
+          </div>
+        </form>
+      </div>
     </div>
+
+    {% if form.instance.pk %}
+      {% include "products/partials/_product_image.html" with product=form.instance %}
+    {% else %}
+      <div class="card bg-base-100 shadow-md">
+        <div class="card-body">
+          <h2 class="card-title">Image</h2>
+          <p class="opacity-70">Save the product first, then add its image here.</p>
+        </div>
+      </div>
+    {% endif %}
   </div>
 {% endblock %}

@@ -6,10 +6,13 @@ grows with the project; tests never invoke the seed command.
 
 from datetime import timedelta
 from decimal import Decimal
+from io import BytesIO
 
 import pytest
 from django.contrib.auth import get_user_model
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.utils import timezone
+from PIL import Image
 
 from orders.models import Cart, CartItem, Coupon
 from products.models import Category, Product, Tag
@@ -47,6 +50,32 @@ def product(category):
         price=Decimal("349.99"),
         category=category,
     )
+
+
+@pytest.fixture
+def media_root(settings, tmp_path):
+    """Point MEDIA_ROOT at a throwaway folder so tests never touch media/."""
+    settings.MEDIA_ROOT = tmp_path / "media"
+    return settings.MEDIA_ROOT
+
+
+@pytest.fixture
+def make_image():
+    """Build an in-memory image upload: ``make_image(width, height, ...)``."""
+
+    def build(width=800, height=1000, format="PNG", name="photo.png", mode="RGB"):
+        buffer = BytesIO()
+        Image.new(mode, (width, height), "steelblue").save(buffer, format=format)
+        return SimpleUploadedFile(name, buffer.getvalue())
+
+    return build
+
+
+@pytest.fixture
+def product_with_image(product, media_root, make_image):
+    """The Seraphine Home Hub with an image file saved in media_root."""
+    product.image.save("seraphine.webp", make_image(format="WEBP", name="x.webp"))
+    return product
 
 
 @pytest.fixture

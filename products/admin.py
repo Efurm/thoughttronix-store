@@ -23,3 +23,6 @@ class ProductAdmin(admin.ModelAdmin):
     list_filter = ("category", "is_available", "is_featured", "tags")
     search_fields = ("name", "description")
     prepopulated_fields = {"slug": ("name",)}
+    # Images are uploaded only through the back office's image card, so
+    # every upload passes products/images.py's rules.
+    readonly_fields = ("image",)
