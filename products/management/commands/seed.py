@@ -1,7 +1,8 @@
 """Seed the ThoughtTronix demo world.
 
-Destructive and idempotent: every run wipes the catalog and the demo
-accounts, then rebuilds the identical demo world. Run it whenever the
+Destructive and idempotent: every run wipes the catalog, its images in
+media/products/, and the demo accounts, then rebuilds the identical demo
+world, with marketing's imagery from product-images/. Run it whenever the
 database should return to a known state.
 
 Demo logins (documented in the README):
@@ -15,13 +16,18 @@ import random
 from datetime import timedelta
 from decimal import Decimal
 
+from django.conf import settings
 from django.contrib.auth import get_user_model
-from django.core.management.base import BaseCommand
+from django.core.exceptions import ValidationError
+from django.core.files import File
+from django.core.files.storage import default_storage
+from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 from django.utils import timezone
 from django.utils.text import slugify
 
 from orders.models import Cart, Coupon, Order, OrderItem
+from products.images import prepare_product_image
 from products.models import Category, Product, Tag
 
 TAGS = [
@@ -516,14 +522,46 @@ COUPONS = [
 ]
 
 
+# Marketing's product imagery: file in product-images/ -> product slug.
+# Each goes through products/images.py, exactly like an employee upload.
+# "SyncRest GPT Text.png" is deliberately absent: it is the full ad layout,
+# whose fine print is unreadable at card size, so SyncRest uses the clean
+# photo. Every other product keeps its category placeholder.
+PRODUCT_IMAGES = {
+    "Calm Collar GPT Man.png": "calm-collar",
+    "CrowdCalm Array No Text.png": "crowdcalm-array",
+    "DreamWeaver Matrix GPT 3.png": "dreamweaver",
+    "Hush GPT No Text.png": "hush",
+    "MindSync Duo.png": "mindsync-duo",
+    "MindSync GPT 2.png": "mindsync",
+    "MoodSet GPT No Text.png": "moodset",
+    "RecallPro.png": "recallpro",
+    "Seraphine GPT Text.png": "seraphine",
+    "SoulSear No Text.png": "soulsear-mark-ii",
+    "SyncRest GPT No Text.png": "syncrest",
+    "Veil GPT Text.png": "veil",
+}
+
+PRODUCT_IMAGES_DIR = settings.BASE_DIR / "product-images"
+
+
 class Command(BaseCommand):
-    help = "Wipe and rebuild the demo world: catalog, tags, and demo accounts."
+    help = "Wipe and rebuild the demo world: catalog, images, accounts, orders."
 
     @transaction.atomic
     def handle(self, *args, **options):
+        # Every image is checked before anything is wiped, so a bad file
+        # stops the seed with the old demo world still intact.
+        images = self._prepare_images()
+        stale_files = self._stored_product_images()
+
         self._wipe()
         tags = self._create_tags()
         self._create_catalog(tags)
+        self._attach_images(images)
+        # New files have fresh names, so emptying the old ones after commit
+        # can never touch them; a rolled-back seed keeps the old files.
+        transaction.on_commit(lambda: self._delete_files(stale_files))
         self._create_users()
         self._create_customer_cart()
         self._create_orders()
@@ -533,13 +571,46 @@ class Command(BaseCommand):
             self.style.SUCCESS(
                 f"Seeded {Category.objects.count()} categories, "
                 f"{Tag.objects.count()} tags, "
-                f"{Product.objects.count()} products, "
+                f"{Product.objects.count()} products "
+                f"({len(images)} with images), "
                 f"{get_user_model().objects.count()} users, "
                 f"{Order.objects.count()} orders, "
                 f"{Coupon.objects.count()} coupons, "
                 f"and a live cart for 'customer'."
             )
         )
+
+    def _prepare_images(self):
+        """Run every mapped file through the upload rules; stop on any failure."""
+        images = {}
+        for filename, slug in PRODUCT_IMAGES.items():
+            path = PRODUCT_IMAGES_DIR / filename
+            if not path.exists():
+                raise CommandError(f"product-images/{filename} is missing.")
+            with path.open("rb") as handle:
+                try:
+                    images[slug] = prepare_product_image(File(handle))
+                except ValidationError as error:
+                    raise CommandError(
+                        f"product-images/{filename}: {error.messages[0]}"
+                    ) from error
+        return images
+
+    def _stored_product_images(self):
+        """Every file currently in media/products/ — emptied once we commit."""
+        try:
+            _, files = default_storage.listdir("products")
+        except FileNotFoundError:
+            return []
+        return [f"products/{name}" for name in files]
+
+    def _attach_images(self, images):
+        for slug, content in images.items():
+            Product.objects.get(slug=slug).replace_image(content)
+
+    def _delete_files(self, names):
+        for name in names:
+            default_storage.delete(name)
 
     def _wipe(self):
         """Remove everything the seed owns; the rebuild starts from zero."""
