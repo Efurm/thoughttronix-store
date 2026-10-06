@@ -1,6 +1,9 @@
 from pathlib import PurePath
 
-from django.db import models
+from django.core.files.base import ContentFile
+from django.db import models, transaction
+from django.db.models.signals import post_delete
+from django.dispatch import receiver
 from django.templatetags.static import static
 from django.urls import reverse
 from django.utils.crypto import get_random_string
@@ -106,14 +109,55 @@ class Product(models.Model):
         return reverse("products:detail", kwargs={"slug": self.slug})
 
     @property
+    def has_image(self):
+        """True when an image is set *and* its file is actually in storage."""
+        return bool(self.image) and self.image.storage.exists(self.image.name)
+
+    @property
     def display_image_url(self):
         """URL of the image to show for this product.
 
-        The uploaded image only when one is set *and* its file is actually
-        in storage; otherwise the category placeholder. Every template shows
-        product images through this property, so a missing file can never
-        reach the page as a broken image.
+        The uploaded image when ``has_image``; otherwise the category
+        placeholder. Every template shows product images through this
+        property, so a missing file can never reach the page as a broken
+        image.
         """
-        if self.image and self.image.storage.exists(self.image.name):
+        if self.has_image:
             return self.image.url
         return static(self.category.placeholder_image)
+
+    def replace_image(self, content: ContentFile) -> None:
+        """Store ``content`` (from products/images.py) as this product's image.
+
+        The new file is written and the row saved first; the previous file
+        is deleted only once that has committed, so the product always
+        points at a file that exists.
+        """
+        old_name = self.image.name
+        with transaction.atomic():
+            self.image.save(content.name, content, save=False)
+            self.save(update_fields=["image"])
+            _delete_file_on_commit(self.image.storage, old_name)
+
+    def remove_image(self) -> None:
+        """Return this product to its placeholder, deleting the file on commit."""
+        old_name = self.image.name
+        with transaction.atomic():
+            self.image = ""
+            self.save(update_fields=["image"])
+            _delete_file_on_commit(self.image.storage, old_name)
+
+
+def _delete_file_on_commit(storage, name):
+    if name:
+        transaction.on_commit(lambda: storage.delete(name))
+
+
+@receiver(post_delete, sender=Product)
+def delete_product_image_file(sender, instance, **kwargs):
+    """Delete a deleted product's image file once the delete commits.
+
+    A signal rather than a ``delete()`` override, so bulk deletes — the
+    Django admin's "delete selected", ``queryset.delete()`` — are covered.
+    """
+    _delete_file_on_commit(instance.image.storage, instance.image.name)
