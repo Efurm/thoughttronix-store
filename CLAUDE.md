@@ -1,13 +1,14 @@
 # CLAUDE.md — The ThoughtTronix Store
 
-A server-rendered Django 6 storefront and back office. The PRD (`prd/core-platform.md`) and the plan (`plans/core-platform.md`) record how the core platform was designed and built.
+A server-rendered Django 6 storefront and back office. The PRDs in `prd/` and the plans in `plans/` record how each feature was designed and built (`core-platform`, then `product-images`).
 
 ## Commands
 
 - `uv sync` — install dependencies (Python 3.13, managed by uv)
 - `uv run python manage.py migrate` — apply migrations
 - `uv run python manage.py seed` — reset the database to the demo world
-  (destructive, idempotent)
+  (destructive, idempotent; also rebuilds `media/products/` from
+  `product-images/`)
 - `uv run python manage.py tailwind runserver` — dev server + Tailwind watch
 - `uv run python manage.py tailwind build` — compile production CSS
 - `uv run pytest` — run the test suite
@@ -20,7 +21,7 @@ A server-rendered Django 6 storefront and back office. The PRD (`prd/core-platfo
   `job_title`). Roles are Django's own vocabulary: customers are plain users,
   employees are `is_staff`, the admin is `is_superuser`. No role field, no Groups.
 - `products/` — catalog (`Category`, `Product`, `Tag`), its back-office CRUD,
-  and the `seed` command
+  product images (`images.py`, the upload gatekeeper), and the `seed` command
 - `orders/` — cart, checkout, orders, coupons (seasonal discount codes),
   and back-office order and coupon management
 - `dashboard/` — the staff analytics dashboard
@@ -29,16 +30,27 @@ A server-rendered Django 6 storefront and back office. The PRD (`prd/core-platfo
   `templates/<app>/`
 - `assets/` — static sources; `assets/css/source.css` is the Tailwind input,
   `assets/css/tailwind.css` is compiled output (gitignored, never edit)
+- `product-images/` — marketing's source imagery, as delivered; the seed's
+  input (never edit or convert in place)
+- `media/` — uploaded and seeded product images (`MEDIA_ROOT`, gitignored).
+  Served by runserver only while `DEBUG` is on, like static files; serving
+  it under `DEBUG=False` is an open deployment task
 
 ## Architecture convention
 
 Logic lives in models and managers; cross-model workflows get a service
 module; views stay thin.
 
-Exactly two deliberate deep modules, docstrings and type hints on every
+Exactly three deliberate deep modules, docstrings and type hints on every
 public function: `orders/services.py` (`place_order`, and `quote_coupon`
-— the one judge of seasonal discount codes) and `dashboard/queries.py`
-(the dashboard's aggregations).
+— the one judge of seasonal discount codes), `dashboard/queries.py`
+(the dashboard's aggregations), and `products/images.py`
+(`prepare_product_image` — the one judge of product image files; the
+back-office image form and the seed both go through it).
+
+Product image files are only ever replaced or removed through
+`Product.replace_image` / `remove_image`, which delete the old file after
+commit; the image is read-only in the Django admin.
 
 Idiomatic Django throughout: class-based views, model methods, custom
 managers/querysets, forms own their validation. Settings read from `.env`
@@ -55,6 +67,10 @@ via environs with working defaults — the app must run with no `.env` present.
 - HTMX endpoints render partials from `templates/<app>/partials/_<name>.html` —
   prefixed with an underscore, never extending `base.html`.
 - Every list view gets a designed empty state, not a blank page.
+- Product images render only through `Product.display_image_url` (the
+  uploaded image if its file exists, otherwise the category placeholder),
+  never `image.url` or the placeholder directly, inside a fixed 4:3 frame
+  with `object-contain`.
 - Styling is Tailwind + DaisyUI classes only; no crispy-forms, no JavaScript
   beyond HTMX.
 
@@ -70,4 +86,6 @@ via environs with working defaults — the app must run with no `.env` present.
 
 pytest + pytest-django. Shared fixtures live in the project-level
 `conftest.py` — plain fixtures, no factory-boy. Tests never invoke the seed
-command. The suite must be green at every phase boundary.
+command. The suite must be green at every phase boundary. Tests that
+store files use the `media_root` fixture (a temporary `MEDIA_ROOT`) and
+build images in memory with `make_image`.

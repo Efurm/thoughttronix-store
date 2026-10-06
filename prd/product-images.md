@@ -125,3 +125,12 @@ Coverage priorities, in order:
 4. **The image form and views.** Staff-only access; HTMX upload returns the partial with a preview on success, or the error message on rejection; remove works; product create redirects to the edit page.
 5. **Templates.** The catalog, detail, and back-office list render the uploaded image or the placeholder as appropriate, never a media URL for a missing file.
 6. **Admin.** `image` is read-only in `ProductAdmin`.
+
+## Changes Made During the Build
+
+Small departures from the decisions above, each found while building and testing:
+
+- **Lazy loading** is on catalog cards and back-office thumbnails, but not on the product detail page, whose single image is the first thing on screen.
+- **Absurdly large images** (over Pillow's ~179-megapixel safety limit) cannot have their dimensions read, so they get *"… is far too large in pixels. Images can be at most 8000 pixels on each side."* rather than the exact `W × H` message.
+- **Damaged files** are caught when their pixels are decoded and get the "isn't an image we can open" message.
+- **MPO**, the JPEG variant many phone cameras write, is accepted as JPEG.
