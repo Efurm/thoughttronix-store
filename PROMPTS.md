@@ -28,6 +28,46 @@ Each entry has this shape:
     - **Deviations:** recommendations overridden, follow-up questions asked
     - **Sideways:** failures, wrong turns, and how they were caught
 
+## 2026-10-22 — Account Security Center: built Phase 1 (email at signup)
+
+### Prompts
+1. @prd/account-security.md @plans/account-security.md Do Phase 1.
+2. How can I manually verify this phase in the browser?
+3. write the session log and update PROMPTS.md with the standard prompt
+
+### Summary
+- **Outcome:** Built step 1 of the PRD's build order on
+  `feature/account-security`. The signup form has a required Email
+  field and rejects an address already in use, ignoring capitals, with
+  a plain-language error. `User` gained a conditional unique constraint
+  on the lowercased `email` (blank emails are exempt), with migration
+  `0002_user_unique_primary_email`, applied to the dev database. The
+  `customer` and `employee` fixtures now carry `customer@example.com`
+  and `employee@example.com`. The "other" users in the orders tests keep
+  blank emails, which shows that case stays valid. Four new tests were
+  added: email required, duplicate rejected ignoring capitals, the
+  database rejecting a capitals-only duplicate, and two blank emails
+  coexisting. The accounts tests pass (13/13) and ruff is clean. Nothing
+  is committed.
+- **Deviations:** No recommendations were offered, so none were
+  overridden. The one follow-up question asked how to verify the phase in
+  the browser, and was answered with a seven-step walkthrough covering
+  signup and the Django admin.
+- **Sideways:** `plans/account-security.md` does not exist (the
+  2026-10-19 session never wrote it). The agent did not stop to ask: it
+  worked from the PRD's build order and told the user so. The first
+  full-suite run went over the two-minute foreground limit and finished
+  in the background with 272 passed and 1 failed. The failing test
+  expected `Fresh@Example.com` to be stored exactly as typed, but
+  Django's `AbstractUser.clean()` lowercases the domain. The test was
+  changed to expect `Fresh@example.com`, and only the accounts tests were
+  rerun afterwards, not the full suite. Applying the migration changed
+  the tracked `db.sqlite3` grading snapshot, which now shows as modified.
+  The phase was never checked in a browser by the agent. The admin step
+  in the walkthrough (a duplicate email showing a form error rather than
+  a crash) is an expectation based on Django's constraint validation,
+  not something the agent tested.
+
 ## 2026-10-19 — Account Security Center: grilled the design, wrote the PRD
 
 ### Prompts
