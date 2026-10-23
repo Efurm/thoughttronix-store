@@ -1,10 +1,17 @@
 from django.contrib import messages
-from django.contrib.auth.views import LoginView, LogoutView
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.contrib.auth.views import (
+    LoginView,
+    LogoutView,
+    PasswordChangeDoneView,
+    PasswordChangeView,
+)
 from django.contrib.messages.views import SuccessMessageMixin
 from django.urls import reverse_lazy
-from django.views.generic import CreateView
+from django.views.generic import CreateView, TemplateView
 
-from .forms import SignInForm, SignupForm
+from . import security
+from .forms import ChangePasswordForm, SignInForm, SignupForm
 
 
 class SignupView(SuccessMessageMixin, CreateView):
@@ -32,3 +39,36 @@ class SignOutView(LogoutView):
         response = super().post(request, *args, **kwargs)
         messages.info(request, "You have signed out.")
         return response
+
+
+# --- Account Security Center ---------------------------------------------------
+
+
+class SecurityCenterView(LoginRequiredMixin, TemplateView):
+    """The hub: the account's email addresses and links to the focused
+    one-form pages. Staff use this same storefront page."""
+
+    template_name = "accounts/security.html"
+
+
+class ChangePasswordView(PasswordChangeView):
+    """Django's stock change-password view, plus the "password changed"
+    notice.
+
+    The stock view already requires sign-in and refreshes the session
+    hash, so this device stays signed in while every other session is
+    signed out.
+    """
+
+    form_class = ChangePasswordForm
+    template_name = "accounts/password_change.html"
+    success_url = reverse_lazy("accounts:password_change_done")
+
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        security.send_security_notice(form.user, security.Notice.PASSWORD_CHANGED)
+        return response
+
+
+class ChangePasswordDoneView(PasswordChangeDoneView):
+    template_name = "accounts/password_change_done.html"

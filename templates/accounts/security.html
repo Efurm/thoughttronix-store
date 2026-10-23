@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+
+{% block title %}Account Security — The ThoughtTronix Store{% endblock %}
+
+{% block content %}
+  <div class="mx-auto max-w-2xl">
+    <h1 class="text-3xl font-bold">Account Security Center</h1>
+    <p class="mt-2 opacity-70">Keep your account, and everything in it, yours.</p>
+
+    <div class="card mt-6 bg-base-100 shadow-md">
+      <div class="card-body">
+        <h2 class="card-title">Email addresses</h2>
+
+        <div class="mt-2">
+          <p class="text-sm font-semibold opacity-70">Primary email</p>
+          {% if user.email %}
+            <p class="mt-1 font-mono">{{ user.email }}</p>
+            <p class="mt-1 text-xs opacity-60">
+              Security notices always go here. Contact support to change it.
+            </p>
+          {% else %}
+            <p class="mt-1 opacity-70">No primary email on file.</p>
+            <p class="mt-1 text-xs opacity-60">
+              Without one we can't send you security notices or a password reset.
+              Contact support to add one.
+            </p>
+          {% endif %}
+        </div>
+
+        <div class="divider my-2"></div>
+
+        <div>
+          <p class="text-sm font-semibold opacity-70">Secondary email</p>
+          <div class="mt-3 rounded-box border border-dashed border-base-content/20 p-6 text-center">
+            <p class="text-3xl">📮</p>
+            <p class="mt-2 font-semibold">No backup email yet</p>
+            <p class="mt-1 text-sm opacity-70">
+              A verified secondary address is a second way back in if you ever
+              lose access to your primary inbox.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card mt-6 bg-base-100 shadow-md">
+      <div class="card-body">
+        <h2 class="card-title">Password</h2>
+        <p class="text-sm opacity-70">
+          Think your password has leaked? Change it here. Every other device
+          signed in to your account will be signed out.
+        </p>
+        <div class="card-actions mt-2">
+          <a href="{% url 'accounts:password_change' %}" class="btn btn-primary btn-sm">
+            Change password
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+{% endblock %}

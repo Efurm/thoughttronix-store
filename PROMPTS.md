@@ -28,6 +28,47 @@ Each entry has this shape:
     - **Deviations:** recommendations overridden, follow-up questions asked
     - **Sideways:** failures, wrong turns, and how they were caught
 
+## 2026-10-23 — Account Security Center: built Phase 2 (hub and change password)
+
+### Prompts
+1. @prd/account-security.md @plans/account-security.md Do Phase 2.
+2. How can I manually verify this phase in the browser?
+3. log the session and update PROMPTS.md with the standard prompt
+
+### Summary
+- **Outcome:** Built step 2 of the PRD's build order on
+  `feature/account-security`. Added `accounts/security.py`, the fourth
+  deep module. So far it holds a `Notice` enum (one value,
+  `PASSWORD_CHANGED`) and `send_security_notice`, which mails the primary
+  email using one plain-text template per notice
+  (`templates/accounts/email/notice_password_changed.txt`). A user with
+  no primary gets no notice. Added the Account Security Center hub at
+  `/accounts/security/`. It shows the primary email (or a "No primary
+  email on file" state), a designed "No backup email yet" empty state
+  where the secondary will go, and a link to change password. Change
+  password uses Django's stock `PasswordChangeView`, its form and its
+  done page, styled with DaisyUI. It sends the "password changed" notice
+  and keeps the current session while signing out the others. The
+  navbar now shows a "Security" link to every signed-in user. `CLAUDE.md`
+  now says "exactly four" deep modules and mentions the Security Center
+  under `accounts/`. Sixteen new tests were added. The full suite passes
+  (288) and ruff is clean. Nothing is committed.
+- **Deviations:** No recommendations were offered, so none were
+  overridden. The one follow-up question asked how to verify the phase in
+  the browser. It was answered with a six-part walkthrough using the
+  seeded demo accounts: signed-out redirects, the hub, a wrong current
+  password, other sessions signed out after a change, staff on the
+  storefront page, and a user with no email.
+- **Sideways:** `plans/account-security.md` still does not exist. As in
+  Phase 1, the agent worked from the PRD's build order and told the user
+  so. The first attempt to add imports to the test file used an inline
+  `python` heredoc, which failed because `python` is not on the PATH in
+  Git Bash. Ruff caught the undefined names, and the imports were then
+  added with the Edit tool. Clearing the cache between tests was left
+  for Phase 3, where the cooldown first needs it. The agent never viewed
+  the pages in a browser. The walkthrough lists expected results, not
+  ones the agent observed.
+
 ## 2026-10-22 — Account Security Center: built Phase 1 (email at signup)
 
 ### Prompts
