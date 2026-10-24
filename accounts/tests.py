@@ -1,17 +1,21 @@
 import re
+import time
 from datetime import datetime, timedelta
 from http import HTTPStatus
+from types import SimpleNamespace
 
 import pytest
 from django.conf import settings as django_settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.tokens import default_token_generator
-from django.core import mail
+from django.core import mail, signing
+from django.core.exceptions import ValidationError
 from django.db import IntegrityError
 from django.test import Client
 from django.urls import reverse
 
 from accounts import security
+from accounts.models import UserQuerySet
 
 # --- Signup -----------------------------------------------------------------
 
@@ -489,3 +493,537 @@ def test_reset_link_expires_after_an_hour(client, customer, monkeypatch):
     response = client.get(link, follow=True)
 
     assert not response.context["validlink"]
+
+
+# --- Secondary email: model and constraints ---------------------------------
+
+
+def make_user(username, email="", secondary=None, verified=False):
+    return get_user_model().objects.create_user(
+        username=username,
+        email=email,
+        password="x",
+        secondary_email=secondary,
+        secondary_email_verified=verified,
+    )
+
+
+def test_two_users_may_hold_the_same_pending_secondary(db):
+    make_user("first", secondary="shared@example.com")
+    make_user("second", secondary="SHARED@example.com")
+
+    pending = get_user_model().objects.filter(
+        secondary_email__iexact="shared@example.com"
+    )
+    assert pending.count() == 2
+
+
+def test_a_second_verified_copy_of_a_secondary_is_rejected(db):
+    make_user("first", secondary="shared@example.com", verified=True)
+
+    with pytest.raises(IntegrityError):
+        make_user("second", secondary="Shared@Example.com", verified=True)
+
+
+def test_clean_rejects_a_secondary_equal_to_the_primary(customer):
+    customer.secondary_email = "CUSTOMER@example.com"
+
+    with pytest.raises(ValidationError) as excinfo:
+        customer.full_clean()
+
+    assert "secondary_email" in excinfo.value.message_dict
+
+
+def test_clean_rejects_a_primary_that_is_another_users_verified_secondary(customer):
+    make_user("other", secondary="taken@example.com", verified=True)
+    customer.email = "Taken@example.com"
+
+    with pytest.raises(ValidationError) as excinfo:
+        customer.full_clean()
+
+    assert "email" in excinfo.value.message_dict
+
+
+def test_clean_rejects_a_verified_secondary_that_is_another_users_primary(customer):
+    other = make_user("other", secondary="CUSTOMER@example.com", verified=True)
+
+    with pytest.raises(ValidationError) as excinfo:
+        other.full_clean()
+
+    assert "secondary_email" in excinfo.value.message_dict
+
+
+def test_setting_a_secondary_always_resets_it_to_unverified(customer):
+    customer.set_secondary_email("backup@example.com")
+    customer.confirm_secondary_email()
+
+    customer.set_secondary_email("newer@example.com")
+
+    customer.refresh_from_db()
+    assert customer.secondary_email == "newer@example.com"
+    assert not customer.secondary_email_verified
+
+
+def test_removing_a_secondary_clears_it(customer):
+    customer.set_secondary_email("backup@example.com")
+    customer.confirm_secondary_email()
+
+    customer.remove_secondary_email()
+
+    customer.refresh_from_db()
+    assert customer.secondary_email is None
+    assert not customer.secondary_email_verified
+
+
+def test_signup_rejects_another_accounts_verified_secondary(client, db):
+    make_user("other", secondary="taken@example.com", verified=True)
+
+    response = client.post(
+        reverse("accounts:signup"),
+        {
+            "username": "copycat",
+            "email": "TAKEN@example.com",
+            "password1": "neural-implant-9000",
+            "password2": "neural-implant-9000",
+        },
+    )
+
+    assert "already in use" in response.context["form"].errors["email"][0]
+
+
+def test_a_pending_secondary_never_blocks_signup(client, db):
+    make_user("squatter", secondary="victim@example.com")
+
+    client.post(
+        reverse("accounts:signup"),
+        {
+            "username": "victim",
+            "email": "victim@example.com",
+            "password1": "neural-implant-9000",
+            "password2": "neural-implant-9000",
+        },
+    )
+
+    assert get_user_model().objects.filter(username="victim").exists()
+
+
+# --- Secondary email: the security module -----------------------------------
+
+
+@pytest.fixture
+def rf_request(rf):
+    return rf.get("/")
+
+
+def confirm_link(message):
+    """The path of the confirmation link in an email, from ``/accounts/`` on."""
+    match = re.search(
+        r"https?://[^/\s]+(/accounts/secondary-email/confirm/\S+)", message.body
+    )
+    assert match, message.body
+    return match.group(1)
+
+
+def token_from(message):
+    return confirm_link(message).rstrip("/").rsplit("/", 1)[1]
+
+
+def test_requesting_a_secondary_mails_the_link_and_notifies_the_primary(
+    customer, rf_request
+):
+    sent = security.request_secondary_email(customer, "backup@example.com", rf_request)
+
+    assert sent
+    customer.refresh_from_db()
+    assert customer.has_pending_secondary_email
+    confirmation, notice = mail.outbox
+    assert confirmation.to == ["backup@example.com"]
+    assert confirm_link(confirmation)
+    assert notice.to == ["customer@example.com"]
+    assert "added" in notice.subject
+    assert "backup@example.com" in notice.body
+
+
+def test_replacing_a_secondary_sends_the_replaced_notice(customer, rf_request):
+    security.request_secondary_email(customer, "backup@example.com", rf_request)
+
+    security.request_secondary_email(customer, "newer@example.com", rf_request)
+
+    assert mail.outbox[-2].to == ["newer@example.com"]
+    assert "replaced" in mail.outbox[-1].subject
+
+
+def test_confirming_a_token_verifies_and_notifies(customer, rf_request):
+    security.request_secondary_email(customer, "backup@example.com", rf_request)
+    token = token_from(mail.outbox[0])
+
+    user = security.confirm_secondary_email(token)
+
+    assert user == customer
+    customer.refresh_from_db()
+    assert customer.secondary_email_verified
+    assert mail.outbox[-1].to == ["customer@example.com"]
+    assert "confirmed" in mail.outbox[-1].subject
+
+
+def test_confirm_max_age_defaults_to_a_day():
+    assert django_settings.SECONDARY_EMAIL_CONFIRM_MAX_AGE == 24 * 60 * 60
+
+
+def test_an_expired_token_is_rejected(customer, rf_request, monkeypatch):
+    security.request_secondary_email(customer, "backup@example.com", rf_request)
+    token = token_from(mail.outbox[0])
+    later = time.time() + 24 * 60 * 60 + 1
+    monkeypatch.setattr(signing, "time", SimpleNamespace(time=lambda: later))
+
+    with pytest.raises(security.ConfirmationError, match="no longer works"):
+        security.check_confirmation_token(token)
+
+
+def test_a_forged_token_is_rejected(db):
+    with pytest.raises(security.ConfirmationError):
+        security.check_confirmation_token("not-a-real-token")
+
+
+def test_a_token_for_a_replaced_address_is_rejected(customer, rf_request):
+    security.request_secondary_email(customer, "typo@example.com", rf_request)
+    old_token = token_from(mail.outbox[0])
+    security.request_secondary_email(customer, "backup@example.com", rf_request)
+
+    with pytest.raises(security.ConfirmationError):
+        security.confirm_secondary_email(old_token)
+
+    customer.refresh_from_db()
+    assert not customer.secondary_email_verified
+
+
+def test_a_used_token_is_rejected(customer, rf_request):
+    security.request_secondary_email(customer, "backup@example.com", rf_request)
+    token = token_from(mail.outbox[0])
+    security.confirm_secondary_email(token)
+
+    with pytest.raises(security.ConfirmationError):
+        security.confirm_secondary_email(token)
+
+
+def test_confirming_fails_if_another_account_verified_the_address_first(
+    customer, staff_user, rf_request
+):
+    security.request_secondary_email(customer, "shared@example.com", rf_request)
+    customer_token = token_from(mail.outbox[0])
+    staff_user.set_secondary_email("shared@example.com")
+    staff_user.confirm_secondary_email()
+
+    with pytest.raises(security.ConfirmationError, match="already claimed"):
+        security.confirm_secondary_email(customer_token)
+
+    customer.refresh_from_db()
+    assert customer.has_pending_secondary_email
+
+
+def test_confirming_fails_if_the_address_became_a_primary(customer, rf_request):
+    security.request_secondary_email(customer, "newcomer@example.com", rf_request)
+    token = token_from(mail.outbox[0])
+    make_user("newcomer", email="Newcomer@example.com")
+
+    with pytest.raises(security.ConfirmationError, match="already claimed"):
+        security.confirm_secondary_email(token)
+
+
+def test_the_constraint_judges_a_confirmation_race(customer, staff_user, monkeypatch):
+    # Blind the check, as a concurrent confirmation would; the database
+    # constraint still lets only one account verify the address.
+    customer.set_secondary_email("shared@example.com")
+    staff_user.set_secondary_email("shared@example.com")
+    staff_user.confirm_secondary_email()
+    monkeypatch.setattr(UserQuerySet, "with_address", lambda self, address: self.none())
+
+    with pytest.raises(ValidationError):
+        customer.confirm_secondary_email()
+
+    customer.refresh_from_db()
+    assert not customer.secondary_email_verified
+
+
+def test_a_second_confirmation_send_within_the_cooldown_sends_nothing(
+    customer, rf_request
+):
+    security.request_secondary_email(customer, "backup@example.com", rf_request)
+    mail.outbox.clear()
+
+    sent = security.send_secondary_confirmation(customer, rf_request)
+
+    assert not sent
+    assert mail.outbox == []
+
+
+def test_no_confirmation_is_sent_without_a_pending_secondary(customer, rf_request):
+    assert not security.send_secondary_confirmation(customer, rf_request)
+    assert mail.outbox == []
+
+
+def test_removing_a_secondary_notifies_the_primary(customer):
+    customer.set_secondary_email("backup@example.com")
+
+    assert security.remove_secondary_email(customer)
+
+    assert mail.outbox[0].to == ["customer@example.com"]
+    assert "removed" in mail.outbox[0].subject
+    assert "backup@example.com" in mail.outbox[0].body
+
+
+def test_removing_when_there_is_no_secondary_sends_nothing(customer):
+    assert not security.remove_secondary_email(customer)
+    assert mail.outbox == []
+
+
+# --- Secondary email: pages ---------------------------------------------------
+
+
+def add_secondary(client, email="backup@example.com", password="customer123"):
+    return client.post(
+        reverse("accounts:secondary_email"), {"email": email, "password": password}
+    )
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "accounts:secondary_email",
+        "accounts:secondary_email_remove",
+        "accounts:secondary_email_resend",
+    ],
+)
+def test_secondary_pages_send_visitors_to_login(client, db, name):
+    url = reverse(name)
+
+    response = client.post(url)
+
+    assert response.status_code == HTTPStatus.FOUND
+    assert response.url == f"{reverse('accounts:login')}?next={url}"
+
+
+def test_secondary_email_page_returns_200(client, customer):
+    client.force_login(customer)
+
+    response = client.get(reverse("accounts:secondary_email"))
+
+    assert response.status_code == HTTPStatus.OK
+
+
+def test_hub_links_to_adding_a_secondary(client, customer):
+    client.force_login(customer)
+
+    page = client.get(reverse("accounts:security")).content.decode()
+
+    assert reverse("accounts:secondary_email") in page
+
+
+def test_adding_a_secondary_requires_the_current_password(client, customer):
+    client.force_login(customer)
+
+    response = add_secondary(client, password="not-my-password")
+
+    assert response.status_code == HTTPStatus.OK
+    assert response.context["form"].errors["password"]
+    customer.refresh_from_db()
+    assert customer.secondary_email is None
+    assert mail.outbox == []
+
+
+def test_adding_a_secondary_sends_the_link_and_shows_it_pending(client, customer):
+    client.force_login(customer)
+
+    response = add_secondary(client)
+
+    assert response.status_code == HTTPStatus.FOUND
+    assert response.url == reverse("accounts:security")
+    assert [m.to for m in mail.outbox] == [
+        ["backup@example.com"],
+        ["customer@example.com"],
+    ]
+    page = client.get(response.url).content.decode()
+    assert "backup@example.com" in page
+    assert "Pending" in page
+    assert "sent a confirmation link" in page
+    assert reverse("accounts:secondary_email_resend") in page
+
+
+@pytest.mark.parametrize(
+    ("email", "error"),
+    [
+        ("CUSTOMER@example.com", "your primary email"),
+        ("EMPLOYEE@example.com", "already in use"),
+    ],
+)
+def test_adding_a_secondary_rejects_addresses_that_cannot_work(
+    client, customer, staff_user, email, error
+):
+    client.force_login(customer)
+
+    response = add_secondary(client, email=email)
+
+    assert error in response.context["form"].errors["email"][0]
+
+
+def test_adding_another_accounts_verified_secondary_is_rejected(client, customer):
+    make_user("other", secondary="taken@example.com", verified=True)
+    client.force_login(customer)
+
+    response = add_secondary(client, email="Taken@example.com")
+
+    assert "already in use" in response.context["form"].errors["email"][0]
+
+
+def test_adding_another_accounts_pending_secondary_is_allowed(client, customer):
+    make_user("other", secondary="shared@example.com")
+    client.force_login(customer)
+
+    response = add_secondary(client, email="shared@example.com")
+
+    assert response.status_code == HTTPStatus.FOUND
+
+
+def test_replacing_a_verified_secondary_stops_it_counting_at_once(client, customer):
+    customer.set_secondary_email("backup@example.com")
+    customer.confirm_secondary_email()
+    client.force_login(customer)
+
+    add_secondary(client, email="newer@example.com")
+
+    customer.refresh_from_db()
+    assert customer.secondary_email == "newer@example.com"
+    assert not customer.secondary_email_verified
+    assert "replaced" in mail.outbox[-1].subject
+
+
+def test_hub_shows_a_verified_secondary(client, customer):
+    customer.set_secondary_email("backup@example.com")
+    customer.confirm_secondary_email()
+    client.force_login(customer)
+
+    page = client.get(reverse("accounts:security")).content.decode()
+
+    assert "Verified" in page
+    assert reverse("accounts:secondary_email_resend") not in page
+
+
+def test_remove_button_clears_the_secondary(client, customer):
+    customer.set_secondary_email("backup@example.com")
+    client.force_login(customer)
+
+    response = client.post(reverse("accounts:secondary_email_remove"), follow=True)
+
+    customer.refresh_from_db()
+    assert customer.secondary_email is None
+    assert "No backup email yet" in response.content.decode()
+    assert "removed" in mail.outbox[0].subject
+
+
+def test_remove_does_not_accept_get(client, customer):
+    customer.set_secondary_email("backup@example.com")
+    client.force_login(customer)
+
+    response = client.get(reverse("accounts:secondary_email_remove"))
+
+    assert response.status_code == HTTPStatus.METHOD_NOT_ALLOWED
+    customer.refresh_from_db()
+    assert customer.secondary_email == "backup@example.com"
+
+
+def test_resend_mails_a_fresh_link_at_most_once_a_minute(client, customer):
+    customer.set_secondary_email("backup@example.com")
+    client.force_login(customer)
+    resend = reverse("accounts:secondary_email_resend")
+
+    first = client.post(resend, follow=True)
+    second = client.post(resend, follow=True)
+
+    assert [m.to for m in mail.outbox] == [["backup@example.com"]]
+    assert "sent a confirmation link" in first.content.decode()
+    assert "sent a confirmation link" in second.content.decode()
+
+
+def test_resend_does_nothing_for_a_verified_secondary(client, customer):
+    customer.set_secondary_email("backup@example.com")
+    customer.confirm_secondary_email()
+    client.force_login(customer)
+
+    client.post(reverse("accounts:secondary_email_resend"))
+
+    assert mail.outbox == []
+
+
+def test_confirmation_page_works_signed_out_and_get_changes_nothing(client, customer):
+    client.force_login(customer)
+    add_secondary(client)
+    link = confirm_link(mail.outbox[0])
+
+    response = Client().get(link)
+
+    assert response.status_code == HTTPStatus.OK
+    page = response.content.decode()
+    assert "backup@example.com" in page
+    assert "Confirm" in page
+    customer.refresh_from_db()
+    assert not customer.secondary_email_verified
+
+
+def test_confirmation_page_confirms_on_post(client, customer):
+    client.force_login(customer)
+    add_secondary(client)
+    link = confirm_link(mail.outbox[0])
+
+    response = Client().post(link)
+
+    assert response.status_code == HTTPStatus.OK
+    assert "Secondary email confirmed" in response.content.decode()
+    customer.refresh_from_db()
+    assert customer.secondary_email_verified
+
+
+def test_confirmation_page_explains_a_dead_link(client, customer):
+    client.force_login(customer)
+    add_secondary(client)
+    link = confirm_link(mail.outbox[0])
+    client.post(reverse("accounts:secondary_email_remove"))
+
+    on_get = Client().get(link)
+    on_post = Client().post(link)
+
+    assert "no longer works" in on_get.content.decode()
+    assert "no longer works" in on_post.content.decode()
+
+
+def test_confirmation_page_explains_an_address_claimed_elsewhere(client, customer):
+    client.force_login(customer)
+    add_secondary(client, email="shared@example.com")
+    link = confirm_link(mail.outbox[0])
+    make_user("quicker", secondary="shared@example.com", verified=True)
+
+    response = Client().post(link)
+
+    assert "already claimed" in response.content.decode()
+
+
+# --- Password reset by verified secondary -----------------------------------
+
+
+def test_reset_matches_a_verified_secondary_and_mails_it(client, customer):
+    customer.set_secondary_email("backup@example.com")
+    customer.confirm_secondary_email()
+
+    request_reset(client, "Backup@example.com")
+
+    assert len(mail.outbox) == 1
+    assert mail.outbox[0].to == ["Backup@example.com"]
+    assert reset_link(mail.outbox[0])
+
+
+def test_reset_ignores_a_pending_secondary(client, customer):
+    customer.set_secondary_email("backup@example.com")
+
+    response = request_reset(client, "backup@example.com")
+
+    assert response.url == reverse("accounts:password_reset_done")
+    assert mail.outbox == []

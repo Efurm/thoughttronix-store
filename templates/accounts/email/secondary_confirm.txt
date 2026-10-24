@@ -1,0 +1,15 @@
+{% autoescape off %}Hi {{ user.username }},
+
+Someone asked to use {{ address }} as the secondary email for the
+ThoughtTronix account "{{ user.username }}". If it was you, open this link
+and click Confirm:
+
+{{ link }}
+
+The link expires in {{ hours }} hours. Until you confirm, this address
+can't be used to reset the account's password.
+
+If you didn't ask for this, ignore this email; nothing changes.
+
+ThoughtTronix — Your Thoughts, Our Business.
+{% endautoescape %}

@@ -28,6 +28,73 @@ Each entry has this shape:
     - **Deviations:** recommendations overridden, follow-up questions asked
     - **Sideways:** failures, wrong turns, and how they were caught
 
+## 2026-10-23 — Account Security Center: built Phase 4 (secondary email)
+
+### Prompts
+1. @prd/account-security.md @plans/account-security.md Do Phase 4.
+2. how can I manually verify this in the broswer
+3. log the session in PROMPTS.md with the standard prompt
+
+### Summary
+- **Outcome:** Built step 4 of the PRD's build order on
+  `feature/account-security`. `accounts.User` gained a nullable
+  `secondary_email` and a `secondary_email_verified` flag. Migration
+  `0003` adds them, plus a conditional unique constraint on the
+  lowercased secondary that applies only where it is verified, so a
+  pending address reserves nothing. A `UserQuerySet.with_address` lookup
+  (primary or verified secondary, ignoring capitals) is now shared by
+  signup, the new secondary form, `User.clean`, confirmation and
+  password reset. Reset now matches verified secondaries too, never
+  pending ones, and still mails the address typed. `User.clean` holds
+  the two cross-field rules. Model methods set (always unverified),
+  remove and confirm the secondary. Confirmation runs in a transaction,
+  re-checks for a claim by another account, and turns an
+  `IntegrityError` from the constraint into a plain error.
+  `accounts/security.py` gained signed confirmation tokens (`signing`
+  with a salt and `SECONDARY_EMAIL_CONFIRM_MAX_AGE`, read through
+  environs, default 24 hours, listed in `.env.example`), the request,
+  resend, confirm and remove workflows, and four new notices (added,
+  replaced, confirmed, removed) that name the address. New pages: a
+  password-guarded add/replace form, Remove and "Send the link again"
+  POST buttons on the hub, and a confirmation page that works signed
+  out, where GET only shows a Confirm button and POST confirms. The hub
+  shows the secondary with a Pending or Verified badge. The admin shows
+  the secondary fields read-only; the primary stays editable there.
+  Forty-seven new tests were added. The full suite passes (352) and ruff
+  is clean. The migration was applied to the tracked `db.sqlite3`, as in
+  Phases 1 and 2. Nothing is committed.
+- **Deviations:** No recommendations were offered, so none were
+  overridden. Small calls the agent made without asking: replacing the
+  secondary with the address it already holds is refused (the resend
+  button covers that case), the admin shows the secondary read-only so
+  every change goes through the password check and the primary notice,
+  and a link that has already been used shows "no longer works" rather
+  than a second success page. The one follow-up question asked how to
+  verify the phase in the browser. It was answered with a ten-step
+  walkthrough using the seeded `customer` account and the console email
+  output: adding with a wrong and then a right password, the refused
+  addresses, resend and the cooldown, opening the link signed out
+  without confirming, confirming, resetting through the secondary,
+  replacing (old link dies, reset ignores the pending address), a
+  pending address not blocking someone else's signup and then failing
+  to confirm, removing, and staff and admin access.
+- **Sideways:** `plans/account-security.md` still does not exist. The
+  agent worked from the PRD's build order again and said so. The first
+  migration attempt failed because a manager built with
+  `UserManager.from_queryset(...)` cannot be serialized. The agent fixed
+  it with a named `StoreUserManager` subclass. Two Bash heredocs (the
+  security module and the tests) failed with a shell quoting error
+  before writing anything. The agent checked `git status`, then used the
+  Write tool and a scratch file appended with `cat`. While writing the
+  confirmation view, the agent noticed that merging fresh context into
+  the POST response would keep a stale "no longer works" error after a
+  successful confirmation. It fixed this before any test ran. The full
+  suite outlasted the foreground limit and ran in the background. The
+  agent answered the browser question before that run finished and said
+  it was still running; it later reported 352 passing. The agent never
+  viewed the pages in a browser. The walkthrough lists expected results,
+  not ones the agent observed.
+
 ## 2026-10-23 — Account Security Center: built Phase 3 (forgotten password)
 
 ### Prompts

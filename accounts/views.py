@@ -11,13 +11,16 @@ from django.contrib.auth.views import (
     PasswordResetView,
 )
 from django.contrib.messages.views import SuccessMessageMixin
+from django.shortcuts import redirect
 from django.urls import reverse_lazy
-from django.views.generic import CreateView, TemplateView
+from django.views import View
+from django.views.generic import CreateView, FormView, TemplateView
 
 from . import security
 from .forms import (
     ChangePasswordForm,
     ResetPasswordForm,
+    SecondaryEmailForm,
     SetNewPasswordForm,
     SignInForm,
     SignupForm,
@@ -82,6 +85,91 @@ class ChangePasswordView(PasswordChangeView):
 
 class ChangePasswordDoneView(PasswordChangeDoneView):
     template_name = "accounts/password_change_done.html"
+
+
+# --- Secondary email ----------------------------------------------------------
+
+
+def _confirmation_sent_message(address):
+    return (
+        f"We've sent a confirmation link to {address}. Open it to start using "
+        "this address for recovery. Nothing arrived? Wait a minute, then send "
+        "it again."
+    )
+
+
+class SecondaryEmailView(LoginRequiredMixin, FormView):
+    """Add or replace the secondary email. The form checks the current
+    password and the uniqueness rules; the security module does the rest."""
+
+    form_class = SecondaryEmailForm
+    template_name = "accounts/secondary_email.html"
+    success_url = reverse_lazy("accounts:security")
+
+    def get_form_kwargs(self):
+        return {**super().get_form_kwargs(), "user": self.request.user}
+
+    def form_valid(self, form):
+        address = form.cleaned_data["email"]
+        security.request_secondary_email(self.request.user, address, self.request)
+        messages.success(self.request, _confirmation_sent_message(address))
+        return super().form_valid(form)
+
+
+class RemoveSecondaryEmailView(LoginRequiredMixin, View):
+    """A POST-only button on the hub: drop the secondary, pending or
+    verified."""
+
+    http_method_names = ["post"]
+
+    def post(self, request):
+        if security.remove_secondary_email(request.user):
+            messages.success(request, "Your secondary email was removed.")
+        return redirect("accounts:security")
+
+
+class ResendSecondaryConfirmationView(LoginRequiredMixin, View):
+    """A POST-only button on the hub: mail a fresh confirmation link while
+    the secondary is pending. The cooldown skips a second email inside a
+    minute without changing the message."""
+
+    http_method_names = ["post"]
+
+    def post(self, request):
+        user = request.user
+        if user.has_pending_secondary_email:
+            security.send_secondary_confirmation(user, request)
+            messages.success(request, _confirmation_sent_message(user.secondary_email))
+        return redirect("accounts:security")
+
+
+class ConfirmSecondaryEmailView(TemplateView):
+    """The emailed confirmation link. Works signed out, on any device.
+
+    A GET only shows the address and a Confirm button, so email scanners
+    that follow links confirm nothing; the POST does the confirming.
+    """
+
+    template_name = "accounts/secondary_email_confirm.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        try:
+            _user, context["address"] = security.check_confirmation_token(
+                kwargs["token"]
+            )
+        except security.ConfirmationError as error:
+            context["error"] = str(error)
+        return context
+
+    def post(self, request, token):
+        try:
+            user = security.confirm_secondary_email(token)
+        except security.ConfirmationError as error:
+            context = {"error": str(error)}
+        else:
+            context = {"confirmed": True, "address": user.secondary_email}
+        return self.render_to_response(context)
 
 
 # --- Forgotten password -------------------------------------------------------

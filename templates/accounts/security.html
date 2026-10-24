@@ -31,14 +31,49 @@
 
         <div>
           <p class="text-sm font-semibold opacity-70">Secondary email</p>
-          <div class="mt-3 rounded-box border border-dashed border-base-content/20 p-6 text-center">
-            <p class="text-3xl">📮</p>
-            <p class="mt-2 font-semibold">No backup email yet</p>
-            <p class="mt-1 text-sm opacity-70">
-              A verified secondary address is a second way back in if you ever
-              lose access to your primary inbox.
+          {% if user.secondary_email %}
+            <div class="mt-1 flex flex-wrap items-center gap-2">
+              <p class="font-mono">{{ user.secondary_email }}</p>
+              {% if user.secondary_email_verified %}
+                <span class="badge badge-success badge-sm">Verified</span>
+              {% else %}
+                <span class="badge badge-warning badge-sm">Pending</span>
+              {% endif %}
+            </div>
+            <p class="mt-1 text-xs opacity-60">
+              {% if user.secondary_email_verified %}
+                You can reset your password from this address too.
+              {% else %}
+                Open the link we sent to this address to start using it for
+                recovery. Until then, it can't reset your password.
+              {% endif %}
             </p>
-          </div>
+            <div class="mt-3 flex flex-wrap gap-2">
+              <a href="{% url 'accounts:secondary_email' %}" class="btn btn-sm">Replace</a>
+              {% if not user.secondary_email_verified %}
+                <form method="post" action="{% url 'accounts:secondary_email_resend' %}">
+                  {% csrf_token %}
+                  <button type="submit" class="btn btn-sm">Send the link again</button>
+                </form>
+              {% endif %}
+              <form method="post" action="{% url 'accounts:secondary_email_remove' %}">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-sm btn-error btn-outline">Remove</button>
+              </form>
+            </div>
+          {% else %}
+            <div class="mt-3 rounded-box border border-dashed border-base-content/20 p-6 text-center">
+              <p class="text-3xl">📮</p>
+              <p class="mt-2 font-semibold">No backup email yet</p>
+              <p class="mt-1 text-sm opacity-70">
+                A verified secondary address is a second way back in if you ever
+                lose access to your primary inbox.
+              </p>
+              <a href="{% url 'accounts:secondary_email' %}" class="btn btn-primary btn-sm mt-4">
+                Add a secondary email
+              </a>
+            </div>
+          {% endif %}
         </div>
       </div>
     </div>

@@ -20,6 +20,26 @@ urlpatterns = [
         name="password_change_done",
     ),
     path(
+        "security/secondary-email/",
+        views.SecondaryEmailView.as_view(),
+        name="secondary_email",
+    ),
+    path(
+        "security/secondary-email/remove/",
+        views.RemoveSecondaryEmailView.as_view(),
+        name="secondary_email_remove",
+    ),
+    path(
+        "security/secondary-email/resend/",
+        views.ResendSecondaryConfirmationView.as_view(),
+        name="secondary_email_resend",
+    ),
+    path(
+        "secondary-email/confirm/<str:token>/",
+        views.ConfirmSecondaryEmailView.as_view(),
+        name="secondary_email_confirm",
+    ),
+    path(
         "password-reset/",
         views.ResetPasswordView.as_view(),
         name="password_reset",

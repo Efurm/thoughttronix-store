@@ -160,3 +160,8 @@ EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 
 # Password reset links expire after this many seconds (one hour).
 PASSWORD_RESET_TIMEOUT = env.int("PASSWORD_RESET_TIMEOUT", default=60 * 60)
+
+# Secondary-email confirmation links expire after this many seconds (one day).
+SECONDARY_EMAIL_CONFIRM_MAX_AGE = env.int(
+    "SECONDARY_EMAIL_CONFIRM_MAX_AGE", default=24 * 60 * 60
+)
