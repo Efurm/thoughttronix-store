@@ -9,8 +9,10 @@ customer cannot change the primary from the Security Center, so an
 attacker holding a stolen session cannot silence the alarm.
 """
 
+import hashlib
 from enum import StrEnum
 
+from django.core.cache import cache
 from django.core.mail import send_mail
 from django.template.loader import render_to_string
 
@@ -25,11 +27,16 @@ class Notice(StrEnum):
     """
 
     PASSWORD_CHANGED = "password_changed"
+    PASSWORD_RESET = "password_reset"
 
 
 _SUBJECTS = {
     Notice.PASSWORD_CHANGED: "Your ThoughtTronix password was changed",
+    Notice.PASSWORD_RESET: "Your ThoughtTronix password was reset",
 }
+
+#: Seconds an address must wait between reset or confirmation emails.
+MAIL_COOLDOWN_SECONDS = 60
 
 
 def send_security_notice(user: User, notice: Notice) -> bool:
@@ -45,3 +52,17 @@ def send_security_notice(user: User, notice: Notice) -> bool:
     body = render_to_string(f"accounts/email/notice_{notice}.txt", {"user": user})
     send_mail(_SUBJECTS[notice], body, None, [user.email])
     return True
+
+
+def claim_mail_cooldown(address: str) -> bool:
+    """Claim the right to send a reset or confirmation email to ``address``.
+
+    Returns ``True`` at most once per ``MAIL_COOLDOWN_SECONDS`` for an
+    address, ignoring capitals; a caller that gets ``False`` skips the
+    email silently and shows its usual message. The claim is a single
+    atomic ``cache.add`` on Django's default cache, which is per process
+    in development, so a multi-process deployment needs a shared cache
+    for the limit to hold.
+    """
+    digest = hashlib.sha256(address.strip().lower().encode()).hexdigest()
+    return cache.add(f"accounts:mail-cooldown:{digest}", True, MAIL_COOLDOWN_SECONDS)

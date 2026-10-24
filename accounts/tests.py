@@ -1,7 +1,11 @@
+import re
+from datetime import datetime, timedelta
 from http import HTTPStatus
 
 import pytest
+from django.conf import settings as django_settings
 from django.contrib.auth import get_user_model
+from django.contrib.auth.tokens import default_token_generator
 from django.core import mail
 from django.db import IntegrityError
 from django.test import Client
@@ -320,3 +324,168 @@ def test_security_notice_skips_a_user_without_a_primary(db):
 
     assert not sent
     assert mail.outbox == []
+
+
+# --- Mail cooldown ------------------------------------------------------------
+
+
+def test_cooldown_allows_the_first_claim_and_refuses_the_second():
+    assert security.claim_mail_cooldown("customer@example.com")
+    assert not security.claim_mail_cooldown("CUSTOMER@example.com")
+
+
+def test_cooldown_is_per_address():
+    assert security.claim_mail_cooldown("customer@example.com")
+    assert security.claim_mail_cooldown("employee@example.com")
+
+
+def test_cooldown_claims_a_sixty_second_window(monkeypatch):
+    calls = []
+    monkeypatch.setattr(security.cache, "add", lambda *args: calls.append(args) or True)
+
+    security.claim_mail_cooldown("customer@example.com")
+
+    [(_key, _value, timeout)] = calls
+    assert timeout == 60
+
+
+# --- Forgotten password -------------------------------------------------------
+
+
+def request_reset(client, email="customer@example.com"):
+    return client.post(reverse("accounts:password_reset"), {"email": email})
+
+
+def reset_link(message):
+    """The path of the reset link in an email, from ``/accounts/`` on."""
+    match = re.search(r"https?://[^/\s]+(/accounts/password-reset/\S+)", message.body)
+    assert match, message.body
+    return match.group(1)
+
+
+def test_login_page_links_to_password_reset(client, db):
+    page = client.get(reverse("accounts:login")).content.decode()
+
+    assert "Forgot your password?" in page
+    assert reverse("accounts:password_reset") in page
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "accounts:password_reset",
+        "accounts:password_reset_done",
+        "accounts:password_reset_complete",
+    ],
+)
+def test_reset_pages_work_signed_out(client, db, name):
+    response = client.get(reverse(name))
+
+    assert response.status_code == HTTPStatus.OK
+
+
+def test_reset_timeout_defaults_to_one_hour():
+    assert django_settings.PASSWORD_RESET_TIMEOUT == 60 * 60
+
+
+def test_reset_mails_a_link_to_the_primary(client, customer):
+    response = request_reset(client)
+
+    assert response.status_code == HTTPStatus.FOUND
+    assert response.url == reverse("accounts:password_reset_done")
+    assert len(mail.outbox) == 1
+    assert mail.outbox[0].to == ["customer@example.com"]
+    assert reset_link(mail.outbox[0])
+
+
+def test_reset_matches_ignoring_capitals_and_mails_the_address_typed(client, customer):
+    request_reset(client, "CUSTOMER@Example.com")
+
+    assert len(mail.outbox) == 1
+    assert mail.outbox[0].to == ["CUSTOMER@Example.com"]
+
+
+def test_reset_response_is_identical_for_an_unknown_address(client, customer):
+    known = request_reset(client, "customer@example.com")
+    unknown = request_reset(client, "nobody@example.com")
+
+    assert (unknown.status_code, unknown.url) == (known.status_code, known.url)
+    assert [m.to for m in mail.outbox] == [["customer@example.com"]]
+    done = client.get(unknown.url).content.decode()
+    assert "If an account matches" in done
+
+
+def test_reset_ignores_inactive_users(client, customer):
+    customer.is_active = False
+    customer.save()
+
+    request_reset(client)
+
+    assert mail.outbox == []
+
+
+def test_reset_sends_at_most_one_email_a_minute_per_address(client, customer):
+    first = request_reset(client)
+    second = request_reset(client, "Customer@example.com")
+
+    assert len(mail.outbox) == 1
+    assert second.status_code == first.status_code
+    assert second.url == first.url
+
+
+def test_reset_link_sets_a_new_password_and_notifies_the_primary(client, customer):
+    request_reset(client)
+    form_url = client.get(reset_link(mail.outbox[0]), follow=True).redirect_chain[-1][0]
+
+    response = client.post(
+        form_url,
+        {"new_password1": "fresh-cortex-4471", "new_password2": "fresh-cortex-4471"},
+    )
+
+    assert response.status_code == HTTPStatus.FOUND
+    assert response.url == reverse("accounts:password_reset_complete")
+    customer.refresh_from_db()
+    assert customer.check_password("fresh-cortex-4471")
+    # No auto-login: the customer signs in themselves.
+    assert "_auth_user_id" not in client.session
+
+    notice = mail.outbox[1]
+    assert notice.to == ["customer@example.com"]
+    assert "password was reset" in notice.subject
+
+
+def test_reset_link_works_only_once(client, customer):
+    request_reset(client)
+    link = reset_link(mail.outbox[0])
+    form_url = client.get(link, follow=True).redirect_chain[-1][0]
+    client.post(
+        form_url,
+        {"new_password1": "fresh-cortex-4471", "new_password2": "fresh-cortex-4471"},
+    )
+
+    response = Client().get(link, follow=True)
+
+    assert not response.context["validlink"]
+    assert "no longer works" in response.content.decode()
+
+
+def test_reset_link_dies_when_the_password_changes(client, customer):
+    request_reset(client)
+    link = reset_link(mail.outbox[0])
+    customer.set_password("changed-elsewhere-123")
+    customer.save()
+
+    response = client.get(link, follow=True)
+
+    assert not response.context["validlink"]
+
+
+def test_reset_link_expires_after_an_hour(client, customer, monkeypatch):
+    request_reset(client)
+    link = reset_link(mail.outbox[0])
+    later = datetime.now() + timedelta(hours=1, minutes=1)
+    monkeypatch.setattr(default_token_generator, "_now", lambda: later)
+
+    response = client.get(link, follow=True)
+
+    assert not response.context["validlink"]

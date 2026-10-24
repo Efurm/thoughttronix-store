@@ -5,13 +5,23 @@ from django.contrib.auth.views import (
     LogoutView,
     PasswordChangeDoneView,
     PasswordChangeView,
+    PasswordResetCompleteView,
+    PasswordResetConfirmView,
+    PasswordResetDoneView,
+    PasswordResetView,
 )
 from django.contrib.messages.views import SuccessMessageMixin
 from django.urls import reverse_lazy
 from django.views.generic import CreateView, TemplateView
 
 from . import security
-from .forms import ChangePasswordForm, SignInForm, SignupForm
+from .forms import (
+    ChangePasswordForm,
+    ResetPasswordForm,
+    SetNewPasswordForm,
+    SignInForm,
+    SignupForm,
+)
 
 
 class SignupView(SuccessMessageMixin, CreateView):
@@ -72,3 +82,45 @@ class ChangePasswordView(PasswordChangeView):
 
 class ChangePasswordDoneView(PasswordChangeDoneView):
     template_name = "accounts/password_change_done.html"
+
+
+# --- Forgotten password -------------------------------------------------------
+
+
+class ResetPasswordView(PasswordResetView):
+    """Step 1: ask for an address. The form owns matching, the cooldown and
+    where the link goes; every outcome lands on the same done page."""
+
+    form_class = ResetPasswordForm
+    template_name = "accounts/password_reset.html"
+    email_template_name = "accounts/email/password_reset.txt"
+    subject_template_name = "accounts/email/password_reset_subject.txt"
+    success_url = reverse_lazy("accounts:password_reset_done")
+
+
+class ResetPasswordDoneView(PasswordResetDoneView):
+    """Step 2: the same "if an account matches" message for everyone."""
+
+    template_name = "accounts/password_reset_done.html"
+
+
+class ResetPasswordConfirmView(PasswordResetConfirmView):
+    """Step 3: the emailed link. Django's token expires after
+    ``PASSWORD_RESET_TIMEOUT`` and dies once the password changes, which
+    also makes it single-use. Sends the "password reset" notice; the
+    customer signs in themselves afterwards."""
+
+    form_class = SetNewPasswordForm
+    template_name = "accounts/password_reset_confirm.html"
+    success_url = reverse_lazy("accounts:password_reset_complete")
+
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        security.send_security_notice(form.user, security.Notice.PASSWORD_RESET)
+        return response
+
+
+class ResetPasswordCompleteView(PasswordResetCompleteView):
+    """Step 4: done — off to sign in."""
+
+    template_name = "accounts/password_reset_complete.html"

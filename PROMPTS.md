@@ -28,6 +28,55 @@ Each entry has this shape:
     - **Deviations:** recommendations overridden, follow-up questions asked
     - **Sideways:** failures, wrong turns, and how they were caught
 
+## 2026-10-23 — Account Security Center: built Phase 3 (forgotten password)
+
+### Prompts
+1. @prd/account-security.md @plans/account-security.md Do Phase 3.
+2. How can I manually verify this phase in the browser?
+3. log the session in PROMTPS.md with the standard prompt
+
+### Summary
+- **Outcome:** Built step 3 of the PRD's build order on
+  `feature/account-security`. Django's stock four-step reset flow now
+  lives under `/accounts/password-reset/` (request, "check your inbox",
+  the emailed link, complete). It works signed out, is styled with
+  DaisyUI and has a "This link no longer works" state for bad links.
+  `ResetPasswordForm` matches the typed address against active users'
+  primary emails, ignoring capitals (primaries only at this stage). It
+  sends the link to the address as typed and applies the cooldown.
+  Unknown addresses get the same response. `accounts/security.py` gained
+  `claim_mail_cooldown`, an atomic 60-second `cache.add` per lowercased
+  address, and a `PASSWORD_RESET` notice that is sent when the reset
+  completes. `PASSWORD_RESET_TIMEOUT` is read through environs, defaults
+  to one hour, and is listed in `.env.example`. The login page links to
+  "Forgot your password?". There is no auto-login after a reset. An
+  autouse fixture in `conftest.py` clears the cache around every test.
+  Seventeen new tests were added. The full suite passes (305) and ruff is
+  clean. Nothing is committed.
+- **Deviations:** No recommendations were offered, so none were
+  overridden. The one follow-up question asked how to verify the phase in
+  the browser. It was answered with a nine-step walkthrough using the
+  seeded `customer` account and the console email output: the login
+  link, matching ignoring capitals, the cooldown, unknown addresses,
+  using the link, signing in with the new password, a reused link, and a
+  link killed by a password change. It also told the user how to restore
+  the demo password and how to shorten the timeout through `.env` to see
+  expiry.
+- **Sideways:** `plans/account-security.md` still does not exist. The
+  agent again worked from the PRD's build order and said so. The agent's
+  first draft of a cooldown "lapses" test was muddled. The agent caught it
+  before running anything and replaced it with a test that the claim uses
+  a 60-second timeout. The full-suite run went over the two-minute
+  foreground limit and finished in the background, all passing. An
+  attempt to wait on it with `sleep` was blocked by the harness, and the
+  agent waited for the completion notice instead. The editing script
+  printed a harmless `SyntaxWarning` about an escape sequence. The agent
+  checked that the regex in the test file came out correct. The test of
+  the one-hour default fails if a local `.env` sets
+  `PASSWORD_RESET_TIMEOUT`, and the user was warned. The agent never
+  viewed the pages in a browser. The walkthrough lists expected results,
+  not ones the agent observed.
+
 ## 2026-10-23 — Account Security Center: built Phase 2 (hub and change password)
 
 ### Prompts

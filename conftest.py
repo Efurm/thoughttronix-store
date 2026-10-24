@@ -10,12 +10,22 @@ from io import BytesIO
 
 import pytest
 from django.contrib.auth import get_user_model
+from django.core.cache import cache
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.utils import timezone
 from PIL import Image
 
 from orders.models import Cart, CartItem, Coupon
 from products.models import Category, Product, Tag
+
+
+@pytest.fixture(autouse=True)
+def clear_cache():
+    """Start every test with an empty cache, so mail cooldowns never leak
+    from one test into the next."""
+    cache.clear()
+    yield
+    cache.clear()
 
 
 @pytest.fixture
