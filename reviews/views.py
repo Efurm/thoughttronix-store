@@ -122,3 +122,34 @@ class EditReviewView(ChangeReviewMixin, View):
                 "oob_summary": True,
             },
         )
+
+
+class DeleteReviewView(ChangeReviewMixin, View):
+    """HTMX: delete a review, replacing its card, with the summary
+    out-of-band.
+
+    The author's own delete brings back their slot: the form if they can
+    still write, or the only-buyers line if their order has since been
+    cancelled. A staff delete of someone else's review returns nothing in
+    the card's place, removing it.
+    """
+
+    def post(self, request, pk):
+        review = self.get_review(request, pk)
+        product = review.product
+        own_delete = review.user_id == request.user.pk
+        review.delete()
+        can_review = own_delete and Review.objects.can_write(request.user, product)
+        return render(
+            request,
+            "reviews/partials/_delete.html",
+            {
+                "product": product,
+                "own_delete": own_delete,
+                "can_review": can_review,
+                "review_form": ReviewForm() if can_review else None,
+                "list_now_empty": not own_delete
+                and not product.reviews.excluding_author(request.user).exists(),
+                "review_summary": Review.objects.summary(product),
+            },
+        )

@@ -28,6 +28,56 @@ Each entry has this shape:
     - **Deviations:** recommendations overridden, follow-up questions asked
     - **Sideways:** failures, wrong turns, and how they were caught
 
+## 2026-10-24 — Product reviews: implemented Phase 4 (delete)
+
+### Prompts
+1. /implement @prd/product-reviews.md @plans/product-reviews.md implement
+   phase 4
+2. How do I verify this phase or feature manually in the browser?
+3. update PROMPTS.md, commit the completed phase, and push it to GitHub.
+
+### Summary
+- **Outcome:** Built Phase 4 on `feature/product-reviews`:
+  - A Delete button beside Edit on the review card. It is shown under
+    the same `can_change` rule and uses `hx-confirm` (the browser's
+    native dialog, per the PRD).
+  - `DeleteReviewView` (`POST /reviews/<pk>/delete/`, `reviews:delete`).
+    It goes through the shared `ChangeReviewMixin`, so it requires login
+    and returns 403 unless the user is the author or staff. The author's
+    own delete returns the slot in the card's place: the form, or the
+    only-buyers line if their order has since been cancelled. A staff
+    delete of someone else's review returns nothing in the card's place,
+    which removes it. Every response carries the summary out-of-band.
+  The suite went from 441 to 453 passing (12 new tests in
+  `reviews/test_delete.py`), and Ruff is clean.
+- **Deviations:** No recommendations were overridden. Calls the agent
+  made without asking, listed back to the user:
+  - The slot's state logic moved from `products/detail.html` into a new
+    `_slot.html` partial, shared by the page and the delete response.
+    Its sign-in link now builds `next` from the product's URL rather
+    than the request path, which is the same address on the product
+    page.
+  - When staff delete the last review, the response appends the empty
+    state to the list out-of-band (`beforeend:#review-list`), so the
+    list never goes blank.
+  - A GET to the delete URL returns 405, and a missing review 404.
+  One follow-up question (browser verification) was answered with a
+  step-by-step walkthrough. The agent read the dev database (no writes)
+  to find `customer`'s purchases and a background buyer of MindSync.
+- **Sideways:**
+  - The first full `pytest` run took longer than the 5-minute tool
+    timeout and moved to the background. The agent ran the reviews and
+    products tests in the meantime (194 passed), then confirmed the full
+    run finished green at 453.
+  - `ruff format --check` flagged `reviews/urls.py`, and it was
+    reformatted.
+  - The walkthrough's 403 step was awkward. The seed has only one
+    customer who can sign in, so the agent offered a console `fetch`
+    that needs a second customer account. It said so and pointed to the
+    automated 403 tests instead.
+  - The agent didn't view the pages in a browser; the user was given
+    the manual walkthrough instead.
+
 ## 2026-10-24 — Product reviews: implemented Phase 3 (edit)
 
 ### Prompts

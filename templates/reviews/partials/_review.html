@@ -1,6 +1,7 @@
 {% load review_extras %}
 {# One review card. Its id lets HTMX swap just this card — Edit swaps it #}
-{# for the pre-filled form in the same spot. #}
+{# for the pre-filled form in the same spot, and Delete (after the #}
+{# browser's own confirm) swaps it for whatever the delete returns. #}
 <article id="review-{{ review.pk }}" class="card bg-base-100 shadow-sm">
   <div class="card-body gap-2">
     <div class="flex flex-wrap items-center justify-between gap-2">
@@ -25,6 +26,12 @@
                 hx-get="{% url 'reviews:edit' review.pk %}"
                 hx-target="#review-{{ review.pk }}"
                 hx-swap="outerHTML">Edit</button>
+        <button type="button"
+                class="btn btn-ghost btn-sm text-error"
+                hx-post="{% url 'reviews:delete' review.pk %}"
+                hx-confirm="Delete this review? This can't be undone."
+                hx-target="#review-{{ review.pk }}"
+                hx-swap="outerHTML">Delete</button>
       </div>
     {% endif %}
   </div>

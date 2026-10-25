@@ -1,0 +1,12 @@
+{# A delete's response. The author's own delete puts the slot's contents #}
+{# (the form again, or the only-buyers line) where their card stood; a #}
+{# staff delete of someone else's review leaves nothing, removing the card. #}
+{# The summary always follows out-of-band. #}
+{% if own_delete %}
+  {% include "reviews/partials/_slot.html" %}
+  {% include "reviews/partials/_empty_state.html" with oob=True %}
+{% elif list_now_empty %}
+  {# The last card is gone: append the empty state to the bare list. #}
+  <div hx-swap-oob="beforeend:#review-list">{% include "reviews/partials/_empty_state.html" %}</div>
+{% endif %}
+{% include "reviews/partials/_summary.html" with oob=True %}
