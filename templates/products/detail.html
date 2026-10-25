@@ -74,6 +74,9 @@
       {% empty %}
         {% include "reviews/partials/_empty_state.html" %}
       {% endfor %}
+      {% if more_reviews %}
+        {% include "reviews/partials/_more_button.html" with next_page=2 %}
+      {% endif %}
     </div>
   </section>
 {% endblock %}

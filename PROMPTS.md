@@ -28,6 +28,54 @@ Each entry has this shape:
     - **Deviations:** recommendations overridden, follow-up questions asked
     - **Sideways:** failures, wrong turns, and how they were caught
 
+## 2026-10-24 — Product reviews: implemented Phase 5 (show more)
+
+### Prompts
+1. /implement @prd/product-reviews.md @plans/product-reviews.md implement
+   phase 5
+2. How do I verify this phase or feature manually in the browser?
+3. update PROMPTS.md, commit the completed phase, and push it to GitHub.
+
+### Summary
+- **Outcome:** Built Phase 5 on `feature/product-reviews`:
+  - `ShowMoreReviewsView` (`GET /reviews/product/<pk>/page/<n>/`,
+    `reviews:more`). It is public because it only reads. It returns
+    the next 10 other reviews newest first, without the viewer's own,
+    using the same query as the product page's first batch (the
+    existing `excluding_author` and `page` queryset methods).
+  - A `_more_button.html` partial, the last item in `#review-list`. It
+    replaces itself with the fetched batch (`_more.html`), so reviews
+    append below and the page never navigates. Each batch carries a new
+    button while more remain. The product page shows the button only
+    when there are more than 10.
+  The suite went from 453 to 463 passing (10 new tests in
+  `reviews/test_show_more.py`), and Ruff is clean.
+- **Deviations:** No recommendations were overridden. Calls the agent
+  made without asking, listed back to the user:
+  - Page 0 and an unknown product return 404. A page past the end
+    returns an empty batch with no button.
+  - `hx-disabled-elt` on the button stops a double-click from loading
+    the same page twice.
+  - Pages are counted by position, so a delete while the page is open
+    makes the next batch skip one review, and an add makes one show
+    twice. The plan doesn't cover this, so it was left as is and
+    reported.
+  One follow-up question (browser verification) was answered with a
+  walkthrough, including a shell snippet that adds 25 throwaway
+  reviews to Seraphine and a cleanup line. The agent didn't run it.
+- **Sideways:**
+  - The first edit script failed because bare `python` isn't on PATH
+    (Windows sends it to the Microsoft Store). The template files in
+    the same command had already been written. The agent checked
+    `git diff --stat` and re-ran the edits through `uv run python`.
+  - The full `pytest` run took longer than the tool timeout and moved
+    to the background. The agent ran the new tests meanwhile (10
+    passed). The full run finished green at 463, but
+    `ruff format --check` flagged `reviews/test_show_more.py`, which
+    was reformatted and re-tested.
+  - The agent didn't view the pages in a browser; the user was given
+    the manual walkthrough instead.
+
 ## 2026-10-24 — Product reviews: implemented Phase 4 (delete)
 
 ### Prompts

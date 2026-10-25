@@ -10,6 +10,7 @@ Responses carry the summary as an out-of-band swap via the
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import PermissionDenied
 from django.db import IntegrityError, transaction
+from django.http import Http404
 from django.shortcuts import get_object_or_404, render
 from django.views import View
 
@@ -151,5 +152,35 @@ class DeleteReviewView(ChangeReviewMixin, View):
                 "list_now_empty": not own_delete
                 and not product.reviews.excluding_author(request.user).exists(),
                 "review_summary": Review.objects.summary(product),
+            },
+        )
+
+
+class ShowMoreReviewsView(View):
+    """HTMX: the next page of a product's other reviews, newest first.
+
+    Public, since it only reads. The batch replaces the Show more button
+    that asked for it, so it lands below the reviews already shown, and
+    ends with its own button while more remain. The viewer's own review
+    is left out, as on the product page's first batch.
+    """
+
+    def get(self, request, pk, number):
+        if number < 1:
+            raise Http404
+        product = get_object_or_404(Product, pk=pk)
+        reviews, more_reviews = (
+            product.reviews.select_related("user", "updated_by")
+            .excluding_author(request.user)
+            .page(number)
+        )
+        return render(
+            request,
+            "reviews/partials/_more.html",
+            {
+                "product": product,
+                "reviews": reviews,
+                "more_reviews": more_reviews,
+                "next_page": number + 1,
             },
         )

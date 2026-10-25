@@ -1,0 +1,8 @@
+{# A Show more response: the next batch of reviews, in place of the #}
+{# button that asked for it, ending with a new button while more remain. #}
+{% for review in reviews %}
+  {% include "reviews/partials/_review.html" %}
+{% endfor %}
+{% if more_reviews %}
+  {% include "reviews/partials/_more_button.html" %}
+{% endif %}
