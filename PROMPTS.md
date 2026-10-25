@@ -28,6 +28,53 @@ Each entry has this shape:
     - **Deviations:** recommendations overridden, follow-up questions asked
     - **Sideways:** failures, wrong turns, and how they were caught
 
+## 2026-10-24 — Product reviews: implemented Phase 7 (documentation and polish)
+
+### Prompts
+1. /implement @prd/product-reviews.md @plans/product-reviews.md implement
+   phase 7
+2. How do I verify this phase or feature manually in the browser?
+3. update PROMPTS.md, commit the completed phase, and push it to GitHub.
+
+### Summary
+- **Outcome:** Phase 7 changed docs only, on `feature/product-reviews`:
+  - `CLAUDE.md` gained a `reviews/` entry in the project layout. It
+    covers the rules on the model and queryset, inline staff moderation
+    with the staff edit note, the admin being read-only plus delete, and
+    the HTMX-only endpoints. The "exactly four deep modules" line is
+    unchanged.
+  - `README.md` gained a paragraph on product reviews and the seed's
+    demo reviews. The `customer` demo login row now mentions their
+    review, and the repo layout now says "five apps" and lists
+    `reviews`. It had said "four apps" before this phase.
+  Ruff is clean (`check` and `format --check`) and the suite stayed at
+  463 passing. For the manual check, the agent cloned the repo into its
+  scratchpad and followed only the README steps (`uv sync`, `migrate`,
+  `seed`, which reported 18 reviews). Then, as `customer`, it
+  created, edited and deleted a DreamWeaver review through the Django
+  test client. Each step returned 200, create carried the out-of-band
+  summary, and delete brought the form back.
+- **Deviations:** No recommendations were overridden. Calls the agent
+  made without asking:
+  - The plan's task 3 (this PROMPTS.md entry) was held back until the
+    user's log prompt, because this file's rules say entries are
+    written only on that prompt. Writing it at the start would have
+    left out the later prompts.
+  - The plan says "CI passes", but the repo has no `.github/workflows`,
+    so there was no CI to run. That was reported, not added.
+  One follow-up question (browser verification) was answered with a
+  walkthrough. The agent never opened the pages in a browser.
+- **Sideways:**
+  - In the test-client walkthrough, the edited review didn't show as
+    edited. The agent checked and found that the edit landed within
+    `EDIT_GRACE` (1 second) of the create, which is the intended
+    behaviour, not a bug.
+  - The full `pytest` run (about 6 minutes) was run in the background
+    to avoid the tool timeout.
+  - `db.sqlite3` and the deleted `media/products/*.webp` files still
+    show as changed from earlier seed runs. They were left out of the
+    commit again.
+
 ## 2026-10-24 — Product reviews: implemented Phase 6 (demo reviews in the seed)
 
 ### Prompts

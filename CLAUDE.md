@@ -26,6 +26,13 @@ A server-rendered Django 6 storefront and back office. The PRDs in `prd/` and th
   product images (`images.py`, the upload gatekeeper), and the `seed` command
 - `orders/` — cart, checkout, orders, coupons (seasonal discount codes),
   and back-office order and coupon management
+- `reviews/` — product reviews (`Review`): one per customer per product,
+  buyers only. The rules (`Review.objects.can_write`, `summary`;
+  `Review.can_change`, `is_edited`, `is_edited_by_staff`) live on the
+  model and its queryset, and views and templates both ask them. Staff
+  moderate inline on the product page (edit marks the review "Edited by
+  ThoughtTronix staff"); the Django admin is read-only plus delete.
+  Endpoints are HTMX-only and return partials
 - `dashboard/` — the staff analytics dashboard
 - `PROMPTS.md` — the AI-usage log; append entries, never rewrite history
 - `templates/` — project-level templates (`base.html`); app templates live in

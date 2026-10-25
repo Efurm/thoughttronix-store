@@ -28,6 +28,13 @@ images from each product's edit page in the back office. Uploaded images are
 served by the dev server only while `DEBUG` is on, as static files are;
 serving them in production is not configured yet.
 
+Every product page has a Reviews section: an average star rating, the
+reviews newest first, and "Show more" for the next ten. Customers who
+bought a product can write, edit, and delete one review of it in place,
+without a page reload; staff can edit or delete any review from the same
+page. The seed includes a handful of demo reviews, and `customer` has
+one reviewed purchase and others still waiting for a review.
+
 ## Demo logins
 
 The `seed` command creates a fixed demo world — the same one every run:
@@ -36,7 +43,7 @@ The `seed` command creates a fixed demo world — the same one every run:
 | ---------- | ------------- | ------------------------------------------------------------- |
 | `admin`    | `admin123`    | Superuser: everything below, plus the Django admin at `/admin/` |
 | `employee` | `employee123` | Staff: the back office (products, orders, dashboard)           |
-| `customer` | `customer123` | A customer with order history and a live cart                  |
+| `customer` | `customer123` | A customer with order history, a live cart, and one review    |
 
 ## Commands
 
@@ -53,11 +60,13 @@ The `seed` command creates a fixed demo world — the same one every run:
 
 ## Repo layout
 
-`config/` is the project package (settings, root URLs); the four apps are
+`config/` is the project package (settings, root URLs); the five apps are
 `accounts` (custom user model), `products` (the public catalog and its
 back-office CRUD), `orders` (cart, checkout, orders — with the
-`place_order` service in `orders/services.py`), and `dashboard` (staff
-analytics, with the aggregations in `dashboard/queries.py`). Project-level
+`place_order` service in `orders/services.py`), `reviews` (product
+reviews, written and moderated in place on the product page), and
+`dashboard` (staff analytics, with the aggregations in
+`dashboard/queries.py`). Project-level
 templates live in `templates/`, static sources in `assets/`, marketing's
 product photos in `product-images/`. The product
 requirements are in `prd/`, the phase-by-phase build plan in `plans/`, and
