@@ -1,6 +1,6 @@
 {% load review_extras %}
-{# One review's card, swapped as a unit by its id. Edit shows only when the #}
-{# viewer passes the same can_change rule the server enforces. #}
+{# One review's card, swapped as a unit by its id. Edit and Delete show only #}
+{# when the viewer passes the same can_change rule the server enforces. #}
 <article id="review-{{ review.pk }}" class="card bg-base-100 shadow-sm">
   <div class="card-body gap-2">
     <div class="flex flex-wrap items-center justify-between gap-2">
@@ -22,6 +22,12 @@
                 hx-get="{% url 'reviews:edit' review.pk %}"
                 hx-target="#review-{{ review.pk }}"
                 hx-swap="outerHTML">Edit</button>
+        {# The author's delete re-renders their slot; staff deleting someone #}
+        {# else's review replace just this card with nothing. #}
+        <button type="button" class="btn btn-ghost btn-xs text-error"
+                hx-post="{% url 'reviews:delete' review.pk %}"
+                hx-confirm="Delete {% if review.user == user %}your{% else %}{{ review.reviewer_name }}'s{% endif %} review? This can't be undone."
+                {% if review.user == user %}hx-target="#review-slot" hx-swap="innerHTML"{% else %}hx-target="#review-{{ review.pk }}" hx-swap="outerHTML"{% endif %}>Delete</button>
       </div>
     {% endif %}
   </div>

@@ -31,7 +31,9 @@ class ReviewCreateView(LoginRequiredMixin, View):
             raise PermissionDenied
         form = ReviewForm(request.POST)
         if not form.is_valid():
-            return self.slot(product, can_write_review=True, review_form=form)
+            return render_slot(
+                request, product, can_write_review=True, review_form=form
+            )
         form.instance.user = request.user
         form.instance.product = product
         try:
@@ -40,18 +42,12 @@ class ReviewCreateView(LoginRequiredMixin, View):
         except IntegrityError:
             # A simultaneous submission won the one-review slot.
             raise PermissionDenied from None
-        return self.slot(
+        return render_slot(
+            request,
             product,
             own_review=review,
             oob_summary=True,
             summary=Review.objects.summary(product),
-        )
-
-    def slot(self, product, **context):
-        return render(
-            self.request,
-            "reviews/partials/_slot.html",
-            {"product": product, **context},
         )
 
 
@@ -99,6 +95,44 @@ class ReviewEditView(ChangeReviewMixin, View):
             oob_summary=True,
             summary=Review.objects.summary(review.product),
         )
+
+
+class ReviewDeleteView(ChangeReviewMixin, View):
+    """HTMX: delete a review after the browser's confirm prompt.
+
+    The author's own delete re-renders their slot: the form if they can
+    write again, else why not. Anyone else's delete (staff moderating)
+    answers with only the summary, out of band, so the card's own swap
+    removes it.
+    """
+
+    def post(self, request, pk):
+        review = self.get_review()
+        product = review.product
+        own = review.user_id == request.user.pk
+        review.delete()
+        summary = Review.objects.summary(product)
+        if not own:
+            return render(
+                request,
+                "reviews/partials/_summary.html",
+                {"summary": summary, "oob": True},
+            )
+        can_write = Review.objects.can_write(request.user, product)
+        return render_slot(
+            request,
+            product,
+            can_write_review=can_write,
+            review_form=ReviewForm() if can_write else None,
+            oob_summary=True,
+            summary=summary,
+        )
+
+
+def render_slot(request, product, **context):
+    return render(
+        request, "reviews/partials/_slot.html", {"product": product, **context}
+    )
 
 
 def render_card(request, review, **context):

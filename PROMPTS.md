@@ -28,6 +28,56 @@ Each entry has this shape:
     - **Deviations:** recommendations overridden, follow-up questions asked
     - **Sideways:** failures, wrong turns, and how they were caught
 
+## 2026-10-25 — Product reviews: rebuilt Phase 4 (delete) test-first
+
+### Prompts
+1. yes (start Phase 4)
+2. yes (the two TDD behaviors)
+3. yes (behavior 1's failing test)
+4. yes (behavior 1 green; on to behavior 2)
+5. yes (behavior 2 passed on its first run; keep it as an ordinary test
+   and make the branch explicit)
+
+### Summary
+- **Outcome:**
+  - The user approved two behaviors; the non-owner 403 was left out
+    because Phase 3's tested `ChangeReviewMixin` already settles it.
+    1. An author's own delete removes the row and re-renders their slot
+       (the form if they can write again, or the "only buyers" line if
+       their order has since been cancelled) with the out-of-band
+       summary. This went through an approved failing test first.
+    2. A staff delete of someone else's review answers with only the
+       out-of-band summary, so the card's own swap removes it. Its test
+       passed on the first run, so it wasn't a TDD cycle (see Sideways).
+       It was kept as an ordinary test, and the view now branches on
+       whose review it is.
+  - The rest was built and tested normally:
+    - `POST /reviews/<pk>/delete/` (`reviews:delete`)
+    - create and delete share a `render_slot` helper; `_slot.html` adds
+      the out-of-band summary itself and includes the author's card
+      without one, so there's never a duplicate
+    - a Delete button with `hx-confirm` ("Delete your review? …" or
+      "Delete <name>'s review? …") that targets the slot on the author's
+      own card and the card itself for staff
+    - tests for the signed-out redirect, a non-owner's 403 (the review
+      stays), GET not allowed, a missing review's 404, writing a new
+      review after deleting, the summary after a staff delete, and who
+      sees Delete
+  - The suite went from 449 to 462 passing, and Ruff is clean.
+- **Deviations:** No recommendations were overridden. One follow-up
+  question was asked: what to do when behavior 2's test passed first
+  time; the user took the recommendation.
+- **Sideways:**
+  - Behavior 2's test passed before any code changed. Behavior 1
+    re-renders the acting user's slot, which is always empty for staff,
+    so the result was right only by coincidence. The agent found no
+    failing variant, stopped, explained, and made the branch explicit
+    with the user's approval.
+  - A page test expected the apostrophe in "customer's" as `&#x27;`,
+    but it's template text and isn't escaped; the test was fixed.
+  - The real `db.sqlite3` was never migrated, and no real browser was
+    opened.
+
 ## 2026-10-25 — Product reviews: rebuilt Phase 3 (edit) test-first
 
 ### Prompts

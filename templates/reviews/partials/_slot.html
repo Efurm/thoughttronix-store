@@ -1,9 +1,10 @@
 {# The your-review slot's contents, in all its states: your card, the form, #}
 {# or why there's no form. The page includes it inside #review-slot, and the #}
-{# create endpoint returns it to swap that slot's innerHTML. #}
+{# create and delete endpoints return it to swap that slot's innerHTML, #}
+{# with oob_summary for the summary. #}
 {% if own_review %}
   <p class="mb-2 text-sm font-semibold uppercase tracking-wide opacity-60">Your review</p>
-  {% include "reviews/partials/_review.html" with review=own_review %}
+  {% include "reviews/partials/_review.html" with review=own_review oob_summary=False %}
 {% elif can_write_review %}
   {% include "reviews/partials/_form.html" with form=review_form %}
 {% elif not user.is_authenticated %}
@@ -17,3 +18,4 @@
     <span>Only customers who've bought the {{ product.name }} can review it.</span>
   </div>
 {% endif %}
+{% if oob_summary %}{% include "reviews/partials/_summary.html" with oob=True %}{% endif %}

@@ -8,4 +8,5 @@ urlpatterns = [
     path("reviews/product/<int:pk>/", views.ReviewCreateView.as_view(), name="create"),
     path("reviews/<int:pk>/", views.ReviewCardView.as_view(), name="card"),
     path("reviews/<int:pk>/edit/", views.ReviewEditView.as_view(), name="edit"),
+    path("reviews/<int:pk>/delete/", views.ReviewDeleteView.as_view(), name="delete"),
 ]
