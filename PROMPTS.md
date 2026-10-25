@@ -28,6 +28,81 @@ Each entry has this shape:
     - **Deviations:** recommendations overridden, follow-up questions asked
     - **Sideways:** failures, wrong turns, and how they were caught
 
+## 2026-10-25 — Product reviews: wiped Phases 1–7 and rebuilt Phase 1 test-first
+
+### Prompts
+1. /implement @prd/product-reviews.md @plans/product-reviews.md implement
+   phase 1
+2. was /tdd properly used to check the phase
+3. delete the implemented phase 1 through 7 and re implement them and
+   update PROMPTS.md, commit the completed phase, and push it to GitHub
+   between each phase
+4. Answers to the agent's two questions: "Rewrite history, force-push"
+   (how to delete) and "Stash and restore (Recommended)" (local edits)
+5. approved,go ahead (the three TDD behaviors)
+6. approved, go ahead (behavior 1's failing test)
+7. approved, go ahead (behavior 1 green; finish `can_write`)
+8. approved, go ahead (behavior 2's failing test)
+9. approved,go ahead (behavior 2 green)
+10. approved,go ahead (behavior 3's failing test)
+11. approved, go ahead (behavior 3 green; finish the phase)
+
+### Summary
+- **Outcome:**
+  - Prompt 1 found Phases 1–7 already built, merged to `main` (PR #5)
+    and green (463 tests), so nothing was changed.
+  - Prompt 2's answer: no. The earlier phase logs show no TDD selection,
+    no failing tests and no approval stops. The `implement` skill's file
+    was last changed after the Phase 1 commit, so the earlier run
+    probably never called `tdd`.
+  - After prompt 3, both `main` and `feature/product-reviews` were reset
+    and force-pushed: `main` to `0db4e4d` (the account-security merge),
+    and the branch to `9bb9f77` (PRD and plan only). Local backup
+    branches `backup/main-with-pr5` and `backup/product-reviews-original`
+    keep the old work. The user's uncommitted edits (`REFLECTION.md`,
+    `db.sqlite3`, `media/products/`) are in `stash@{0}`, to be restored
+    after the rebuild.
+  - Phase 1 was rebuilt with the `tdd` skill. The user approved three
+    behaviors, and each one went through an approved failing test
+    before any code was written:
+    1. `can_write` by order status.
+    2. `summary`: average to one decimal and the count, with `None`
+       when there are no reviews.
+    3. `is_edited` / `is_edited_by_staff`.
+  - The rest of the phase was built and tested normally:
+    - the remaining `can_write` conditions (signed in, not staff, no
+      existing review), in one query
+    - `can_change`, `reviewer_name`, `for_display`, `excluding_author`
+    - the constraints and migration
+    - the `make_order` and `soulsear` fixtures
+    - `ProductDetailView`'s review context
+    - the Reviews section with each slot state and the empty state
+    - the `_summary` and `_review` partials
+    - the read-only admin with adding disabled
+  - The suite went from 352 to 402 passing, and Ruff is clean.
+- **Deviations:**
+  - The user overrode the recommendation to revert on a new branch.
+    They chose to rewrite history and force-push `main`, which also
+    deleted the earlier PROMPTS.md entries for Phases 1–7, despite the
+    log's never-delete rule.
+  - Two choices were put to the user at the failing-test stops and
+    accepted: the summary is a dict, and an edit counts after a gap of
+    more than 1 second (`EDIT_GRACE`).
+  - Made without asking: cards show the full name, falling back to the
+    username; the slot states live inline in `detail.html`; the
+    can-write placeholder reads "Reviews open here soon".
+- **Sideways:**
+  - The first test run passed the two-minute limit and finished in the
+    background.
+  - The reset left `reviews/` behind with only `__pycache__` in it,
+    which was removed.
+  - The sign-in link test expected `/` in `next` to be percent-encoded.
+    Django's `urlencode` keeps it, as the add-to-cart link does, so the
+    test was fixed.
+  - Ruff reformatted `reviews/models.py`.
+  - The real `db.sqlite3` was never migrated, and no real browser was
+    opened.
+
 ## 2026-10-24 — Product reviews: turned the PRD into a phased plan
 
 ### Prompts

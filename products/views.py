@@ -13,6 +13,7 @@ from django.views.generic import (
 )
 
 from accounts.mixins import StaffRequiredMixin
+from reviews.models import REVIEWS_PER_PAGE, Review
 
 from .forms import CategoryForm, ProductForm, ProductImageForm, TagForm
 from .models import Category, Product, Tag
@@ -65,11 +66,29 @@ class CategoryView(CatalogView):
 
 
 class ProductDetailView(DetailView):
-    """A single product at its slug URL."""
+    """A single product at its slug URL, with its Reviews section.
+
+    The viewer's own review sits in its own slot, so the list below
+    holds everyone else's, newest first, one page at a time.
+    """
 
     template_name = "products/detail.html"
     context_object_name = "product"
     queryset = Product.objects.select_related("category").prefetch_related("tags")
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        user = self.request.user
+        reviews = Review.objects.filter(product=self.object).for_display()
+        others = list(reviews.excluding_author(user)[: REVIEWS_PER_PAGE + 1])
+        context["review_summary"] = Review.objects.summary(self.object)
+        context["own_review"] = (
+            reviews.filter(user=user).first() if user.is_authenticated else None
+        )
+        context["can_write_review"] = Review.objects.can_write(user, self.object)
+        context["reviews"] = others[:REVIEWS_PER_PAGE]
+        context["has_more_reviews"] = len(others) > REVIEWS_PER_PAGE
+        return context
 
 
 # --- The back office --------------------------------------------------------

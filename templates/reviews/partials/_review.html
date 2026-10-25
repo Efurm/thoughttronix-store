@@ -1,0 +1,17 @@
+<article id="review-{{ review.pk }}" class="card bg-base-100 shadow-sm">
+  <div class="card-body gap-2">
+    <div class="flex flex-wrap items-center justify-between gap-2">
+      <div class="flex items-center gap-3">
+        <span class="text-warning" aria-label="Rated {{ review.rating }} out of 5">{% for star in "12345" %}{% if forloop.counter <= review.rating %}★{% else %}<span class="opacity-30">★</span>{% endif %}{% endfor %}</span>
+        <span class="font-semibold">{{ review.reviewer_name }}</span>
+      </div>
+      <time datetime="{{ review.created_at|date:'c' }}" class="text-sm opacity-60">{{ review.created_at|date:"M j, Y" }}</time>
+    </div>
+    <p class="whitespace-normal break-words">{{ review.comment|linebreaksbr }}</p>
+    {% if review.is_edited_by_staff %}
+      <p class="text-xs italic opacity-60">Edited by ThoughtTronix staff</p>
+    {% elif review.is_edited %}
+      <p class="text-xs italic opacity-60">Edited</p>
+    {% endif %}
+  </div>
+</article>

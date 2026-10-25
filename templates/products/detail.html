@@ -57,4 +57,44 @@
       {% endif %}
     </div>
   </div>
+
+  <section id="reviews" class="mt-12 border-t border-base-300 pt-8">
+    <div class="flex flex-wrap items-baseline justify-between gap-4">
+      <h2 class="text-2xl font-bold">Reviews</h2>
+      {% include "reviews/partials/_summary.html" with summary=review_summary %}
+    </div>
+
+    <div id="review-slot" class="mt-6">
+      {% if own_review %}
+        <p class="mb-2 text-sm font-semibold uppercase tracking-wide opacity-60">Your review</p>
+        {% include "reviews/partials/_review.html" with review=own_review %}
+      {% elif can_write_review %}
+        <div class="alert">
+          <span>You bought the {{ product.name }}. Reviews open here soon.</span>
+        </div>
+      {% elif not user.is_authenticated %}
+        <div class="alert">
+          <span>
+            <a href="{% url 'accounts:login' %}?next={{ product.get_absolute_url|urlencode }}" class="link link-primary">Sign in to leave a review</a>
+          </span>
+        </div>
+      {% elif not user.is_staff %}
+        <div class="alert">
+          <span>Only customers who've bought the {{ product.name }} can review it.</span>
+        </div>
+      {% endif %}
+    </div>
+
+    <div id="review-list" class="mt-6 space-y-4">
+      {% for review in reviews %}
+        {% include "reviews/partials/_review.html" %}
+      {% empty %}
+        <div class="py-12 text-center">
+          <p class="text-5xl">💭</p>
+          <p class="mt-4 text-xl font-semibold">{% if own_review %}No one else has weighed in yet{% else %}No reviews yet{% endif %}</p>
+          <p class="mt-2 opacity-70">Every thought counts. Especially the first.</p>
+        </div>
+      {% endfor %}
+    </div>
+  </section>
 {% endblock %}
