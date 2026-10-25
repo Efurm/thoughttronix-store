@@ -1,12 +1,28 @@
-{# The review form. Posts with HTMX and swaps the your-review slot: the #}
-{# new card on success, this form with its errors beside each field on #}
-{# failure. novalidate leaves every rule to the server-side form. #}
-<form hx-post="{% url 'reviews:create' product.pk %}"
-      hx-target="#review-slot"
+{# The review form, for writing and for editing. Posts with HTMX. #}
+{# Writing: swaps the your-review slot — the new card on success, this #}
+{# form with its errors beside each field on failure. #}
+{# Editing (``editing`` is the review): stands in the card's own spot #}
+{# with the card's id and swaps itself — the updated card on success, #}
+{# the form with its errors on failure; Cancel fetches the original card. #}
+{# novalidate leaves every rule to the server-side form. #}
+<form {% if editing %}id="review-{{ editing.pk }}"
+      hx-post="{% url 'reviews:edit' editing.pk %}"
+      hx-target="this"
+      hx-swap="outerHTML"
+      {% else %}hx-post="{% url 'reviews:create' product.pk %}"
+      hx-target="#review-slot"{% endif %}
       class="card bg-base-100 shadow-sm"
       novalidate>
   <div class="card-body gap-4">
-    <h3 class="card-title text-lg">Share your thoughts on the {{ product.name }}</h3>
+    <h3 class="card-title text-lg">
+      {% if not editing %}
+        Share your thoughts on the {{ product.name }}
+      {% elif editing.user_id == user.pk %}
+        Edit your review
+      {% else %}
+        Edit {{ editing.user.get_full_name|default:editing.user.username }}'s review
+      {% endif %}
+    </h3>
 
     <fieldset>
       <legend class="label mb-1">{{ form.rating.label }}</legend>
@@ -34,7 +50,16 @@
     </div>
 
     <div class="card-actions justify-end">
-      <button type="submit" class="btn btn-primary">Post review</button>
+      {% if editing %}
+        <button type="button"
+                class="btn btn-ghost"
+                hx-get="{% url 'reviews:detail' editing.pk %}"
+                hx-target="#review-{{ editing.pk }}"
+                hx-swap="outerHTML">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save changes</button>
+      {% else %}
+        <button type="submit" class="btn btn-primary">Post review</button>
+      {% endif %}
     </div>
   </div>
 </form>

@@ -28,6 +28,59 @@ Each entry has this shape:
     - **Deviations:** recommendations overridden, follow-up questions asked
     - **Sideways:** failures, wrong turns, and how they were caught
 
+## 2026-10-24 — Product reviews: implemented Phase 3 (edit)
+
+### Prompts
+1. /implement @prd/product-reviews.md @plans/product-reviews.md implement
+   phase 3
+2. How do I verify this phase or feature manually in the browser?
+3. update PROMPTS.md, commit the completed phase, and push it to GitHub.
+
+### Summary
+- **Outcome:** Built Phase 3 on `feature/product-reviews`:
+  - An Edit button on the review card, shown when the model's
+    `can_change` allows it (the author's own card, and every card for
+    staff). The template calls the rule through a new `can_change`
+    filter in `reviews/templatetags/review_extras.py`, so the page and
+    the server can't disagree.
+  - `EditReviewView` (`GET`/`POST /reviews/<pk>/edit/`). GET swaps the
+    card for the pre-filled form in the same spot. POST saves with
+    `updated_by` set to the acting user and returns the updated card
+    with the summary out-of-band. Invalid input re-renders the form
+    in place, with errors, and leaves the review unchanged.
+  - `ReviewCardView` (`GET /reviews/<pk>/`), which Cancel uses to
+    restore the original card.
+  - All three endpoints require login and return 403 when
+    `can_change` fails, through a shared `ChangeReviewMixin`.
+  The suite went from 424 to 441 passing (17 new tests in
+  `reviews/test_edit.py`), and Ruff is clean.
+- **Deviations:** No recommendations were overridden. Calls the agent
+  made without asking, listed back to the user:
+  - `_form.html` now serves create and edit, switching on an
+    `editing` variable, rather than adding a second form partial. The
+    edit form takes the card's id so it swaps itself.
+  - The staff heading names whose review is being edited.
+  - Each edit form gets per-review field ids (`auto_id`), so two open
+    forms never share one.
+  - A missing review returns 404.
+  One follow-up question (browser verification) was answered with a
+  step-by-step walkthrough. The agent read the dev database (no
+  writes) to find which products `customer` has bought.
+- **Sideways:**
+  - The first run of the reviews tests had one failure, caused by the
+    test fixture. It backdated `created_at` but not `updated_at`, so
+    a fresh review already counted as edited. The fixture now
+    backdates both.
+  - A Python string-replace script missed one assertion because of
+    `\n` escaping. Ruff caught the now-unused `re` import. The
+    assertion was fixed with the Edit tool and replaced with a regex
+    check on the checked star.
+  - One shell command first tried `python3`, which isn't usable here,
+    and fell back to `uv run python`. The edit was confirmed applied
+    afterwards.
+  - The agent didn't view the pages in a browser; the user was given
+    the manual walkthrough instead.
+
 ## 2026-10-24 — Product reviews: implemented Phase 2 (create)
 
 ### Prompts

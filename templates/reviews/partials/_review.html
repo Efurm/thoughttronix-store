@@ -1,4 +1,6 @@
-{# One review card. Its id lets HTMX swap just this card. #}
+{% load review_extras %}
+{# One review card. Its id lets HTMX swap just this card — Edit swaps it #}
+{# for the pre-filled form in the same spot. #}
 <article id="review-{{ review.pk }}" class="card bg-base-100 shadow-sm">
   <div class="card-body gap-2">
     <div class="flex flex-wrap items-center justify-between gap-2">
@@ -15,6 +17,15 @@
       <p class="text-xs italic opacity-60">Edited by ThoughtTronix staff</p>
     {% elif review.is_edited %}
       <p class="text-xs italic opacity-60">Edited</p>
+    {% endif %}
+    {% if review|can_change:user %}
+      <div class="card-actions justify-end">
+        <button type="button"
+                class="btn btn-ghost btn-sm"
+                hx-get="{% url 'reviews:edit' review.pk %}"
+                hx-target="#review-{{ review.pk }}"
+                hx-swap="outerHTML">Edit</button>
+      </div>
     {% endif %}
   </div>
 </article>
