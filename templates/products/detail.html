@@ -57,4 +57,42 @@
       {% endif %}
     </div>
   </div>
+
+  <section id="reviews" class="mt-12">
+    <div class="flex flex-wrap items-baseline gap-4">
+      <h2 class="text-2xl font-bold">Reviews</h2>
+      {% include "reviews/partials/_summary.html" %}
+    </div>
+
+    <div id="review-slot" class="mt-6">
+      {% if own_review %}
+        {% include "reviews/partials/_review.html" with review=own_review %}
+      {% elif can_review %}
+        <p class="opacity-70">You bought the {{ product.name }}. The review form arrives soon.</p>
+      {% elif not user.is_authenticated %}
+        <p>
+          <a href="{% url 'accounts:login' %}?next={{ request.path|urlencode }}" class="link link-primary">Sign in to leave a review</a>
+        </p>
+      {% elif not user.is_staff %}
+        <p class="opacity-70">Only customers who've bought the {{ product.name }} can review it.</p>
+      {% endif %}
+    </div>
+
+    <div id="review-list" class="mt-6 flex flex-col gap-4">
+      {% for review in other_reviews %}
+        {% include "reviews/partials/_review.html" %}
+      {% empty %}
+        <div class="py-10 text-center">
+          <p class="text-5xl">💭</p>
+          {% if own_review %}
+            <p class="mt-4 text-xl font-semibold">No one else has weighed in yet</p>
+            <p class="mt-2 opacity-70">Yours are the only thoughts on record. For now.</p>
+          {% else %}
+            <p class="mt-4 text-xl font-semibold">No reviews yet</p>
+            <p class="mt-2 opacity-70">No one has shared their thoughts. We'd have heard.</p>
+          {% endif %}
+        </div>
+      {% endfor %}
+    </div>
+  </section>
 {% endblock %}

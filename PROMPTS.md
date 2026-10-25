@@ -28,6 +28,52 @@ Each entry has this shape:
     - **Deviations:** recommendations overridden, follow-up questions asked
     - **Sideways:** failures, wrong turns, and how they were caught
 
+## 2026-10-24 — Product reviews: implemented Phase 1 (read-only tracer bullet)
+
+### Prompts
+1. /implement @prd/product-reviews.md @plans/product-reviews.md implement
+   phase 1
+2. How do I verify this phase or feature manually in the browser?
+3. update PROMPTS.md, commit the completed phase, and push it to GitHub.
+
+### Summary
+- **Outcome:** Built Phase 1 on `feature/product-reviews`:
+  - A new `reviews` app with the `Review` model (1–5 rating check
+    constraint, unique per user and product, newest first) and one
+    migration.
+  - Rules on the queryset and model: `can_write`, `can_change`,
+    `summary`, `is_edited`, `is_edited_by_staff`, plus
+    `excluding_author` and `page(n)` for Phase 5 to reuse.
+  - `ProductDetailView` gained the review context, and the product
+    page a Reviews section (summary, your-review slot in each of its
+    states, the list, an empty state), with the card and summary as
+    partials under `templates/reviews/partials/`.
+  - A read-only Django admin with adding disabled and bulk delete
+    allowed.
+  - `make_order` and `soulsear` fixtures in `conftest.py`.
+  The suite went from 352 to 400 passing, and Ruff is clean.
+- **Deviations:** No recommendations were overridden. Calls the agent
+  made without asking, listed back to the user: a review counts as
+  edited only when `updated_at` is more than 1 second after
+  `created_at`; cards show the full name, falling back to the username;
+  the CLAUDE.md layout entry waits for Phase 7, as the plan says. One
+  follow-up question (browser verification) was answered with a
+  walkthrough that creates reviews in the shell, since Phase 1 has no
+  form.
+- **Sideways:**
+  - The first fixture edit used bare `python`, which isn't on the PATH
+    here; it was re-run with `uv run python`.
+  - One test expected the apostrophe in "who've" as `&#x27;`, but it is
+    template text and isn't escaped; the test was fixed.
+  - The manual check script first used the test fixture's slug
+    (`seraphine-home-hub`) instead of the seeded one (`seraphine`), and
+    then hit a Windows console encoding error on "★". Both were fixed
+    by re-running.
+  - `db.sqlite3` turned out to be tracked even though `.gitignore`
+    lists it, so the agent verified against a scratch copy rather than
+    migrating the real one. The agent never opened a real browser; the
+    pages were rendered with Django's test client.
+
 ## 2026-10-24 — Product reviews: turned the PRD into a phased plan
 
 ### Prompts

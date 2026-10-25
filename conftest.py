@@ -15,7 +15,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.utils import timezone
 from PIL import Image
 
-from orders.models import Cart, CartItem, Coupon
+from orders.models import Cart, CartItem, Coupon, Order, OrderItem
 from products.models import Category, Product, Tag
 
 
@@ -126,4 +126,51 @@ def coupon(db):
         percent_off=15,
         starts_at=now - timedelta(days=1),
         ends_at=now + timedelta(days=30),
+    )
+
+
+@pytest.fixture
+def make_order(db):
+    """Build an order of one product: ``make_order(user, product, status=...)``."""
+
+    def build(user, product, status=Order.Status.PLACED):
+        order = Order.objects.create(
+            user=user,
+            status=status,
+            total=product.price,
+            email=user.email or "casey@example.com",
+            shipping_name="Casey Monroe",
+            shipping_street="9 Synapse Court",
+            shipping_city="Canyon",
+            shipping_state="TX",
+            shipping_zip="79015",
+            billing_name="Casey Monroe",
+            billing_street="9 Synapse Court",
+            billing_city="Canyon",
+            billing_state="TX",
+            billing_zip="79015",
+            card_last4="4242",
+        )
+        OrderItem.objects.create(
+            order=order,
+            product=product,
+            product_name=product.name,
+            unit_price=product.price,
+            quantity=1,
+        )
+        return order
+
+    return build
+
+
+@pytest.fixture
+def soulsear(db):
+    """The SoulSear Mark II, in the Defense category."""
+    defense = Category.objects.create(name="Defense", slug="defense")
+    return Product.objects.create(
+        name="SoulSear Mark II",
+        slug="soulsear-mark-ii",
+        tagline="Peace of mind, at range.",
+        price=Decimal("2400000.00"),
+        category=defense,
     )

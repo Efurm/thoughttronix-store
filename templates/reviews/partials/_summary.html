@@ -1,0 +1,13 @@
+{# A product's average rating and review count. Include with oob=True to #}
+{# swap it out-of-band from an HTMX response. #}
+<p id="review-summary"
+   class="text-lg"
+   {% if oob %}hx-swap-oob="true"{% endif %}>
+  {% if review_summary.count %}
+    <span class="text-warning">★</span>
+    <span class="font-semibold">{{ review_summary.average }}</span>
+    <span class="opacity-70">· {{ review_summary.count }} review{{ review_summary.count|pluralize }}</span>
+  {% else %}
+    <span class="opacity-70">No reviews yet.</span>
+  {% endif %}
+</p>

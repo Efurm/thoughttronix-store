@@ -1,0 +1,20 @@
+{# One review card. Its id lets HTMX swap just this card. #}
+<article id="review-{{ review.pk }}" class="card bg-base-100 shadow-sm">
+  <div class="card-body gap-2">
+    <div class="flex flex-wrap items-center justify-between gap-2">
+      <span class="text-warning" aria-label="{{ review.rating }} out of 5 stars">
+        {% for star in "12345" %}{% if forloop.counter <= review.rating %}★{% else %}<span class="opacity-30">★</span>{% endif %}{% endfor %}
+      </span>
+      <span class="text-sm opacity-70">
+        {{ review.user.get_full_name|default:review.user.username }}
+        · <time datetime="{{ review.created_at|date:'c' }}">{{ review.created_at|date:"M j, Y" }}</time>
+      </span>
+    </div>
+    <p class="break-words">{{ review.comment|linebreaksbr }}</p>
+    {% if review.is_edited_by_staff %}
+      <p class="text-xs italic opacity-60">Edited by ThoughtTronix staff</p>
+    {% elif review.is_edited %}
+      <p class="text-xs italic opacity-60">Edited</p>
+    {% endif %}
+  </div>
+</article>
