@@ -28,6 +28,40 @@ Each entry has this shape:
     - **Deviations:** recommendations overridden, follow-up questions asked
     - **Sideways:** failures, wrong turns, and how they were caught
 
+## 2026-10-25 — Product reviews: rebuilt Phase 7 (documentation and polish)
+
+### Prompts
+1. yes (go ahead with Phase 7, then restore the stashed local edits)
+
+### Summary
+- **Outcome:**
+  - No TDD: documentation has no candidates under the tdd skill.
+  - `CLAUDE.md` gained a `reviews/` entry in the project layout:
+    - the model, and the rules on it and its queryset
+    - the `can_change` template filter
+    - inline staff moderation and the "Edited by ThoughtTronix staff"
+      note
+    - the read-only admin
+    - HTMX-only endpoints that each re-run their rule
+    The "exactly four deep modules" line is unchanged.
+  - `README.md`:
+    - the intro mentions reviews
+    - a new "Product reviews" section, including the seed's demo
+      reviews
+    - `customer`'s row notes their one review
+    - the repo layout counts five apps, with `reviews`
+  - A polish pass found no leftovers (no placeholder copy, no stray
+    imports). The suite stays at 474 passing; Ruff, the formatter
+    check, and the migration check are clean.
+  - Across Phases 1–7 the rebuild used the tdd skill: 14 behaviors were
+    proposed and approved, 13 went through an approved failing test,
+    and one (Phase 4's staff delete) was reported as passing on its
+    first run.
+- **Deviations:** No recommendations were overridden and no follow-up
+  questions were asked.
+- **Sideways:** Nothing went wrong. No real browser was opened during
+  the rebuild; every page was checked through Django's test client.
+
 ## 2026-10-25 — Product reviews: rebuilt Phase 6 (demo reviews in the seed)
 
 ### Prompts
