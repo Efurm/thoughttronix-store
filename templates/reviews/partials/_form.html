@@ -1,0 +1,40 @@
+{# The review form. Posts with HTMX and swaps the your-review slot: the #}
+{# new card on success, this form with its errors beside each field on #}
+{# failure. novalidate leaves every rule to the server-side form. #}
+<form hx-post="{% url 'reviews:create' product.pk %}"
+      hx-target="#review-slot"
+      class="card bg-base-100 shadow-sm"
+      novalidate>
+  <div class="card-body gap-4">
+    <h3 class="card-title text-lg">Share your thoughts on the {{ product.name }}</h3>
+
+    <fieldset>
+      <legend class="label mb-1">{{ form.rating.label }}</legend>
+      <div class="rating rating-lg">
+        {% for radio in form.rating %}
+          <input type="radio"
+                 name="{{ radio.data.name }}"
+                 value="{{ radio.data.value }}"
+                 aria-label="{{ radio.choice_label }}"
+                 class="mask mask-star-2 bg-warning"
+                 {% if radio.data.selected %}checked{% endif %} />
+        {% endfor %}
+      </div>
+      {% for error in form.rating.errors %}
+        <p class="mt-1 text-sm text-error">{{ error }}</p>
+      {% endfor %}
+    </fieldset>
+
+    <div>
+      <label class="label mb-1" for="{{ form.comment.id_for_label }}">{{ form.comment.label }}</label>
+      {{ form.comment }}
+      {% for error in form.comment.errors %}
+        <p class="mt-1 text-sm text-error">{{ error }}</p>
+      {% endfor %}
+    </div>
+
+    <div class="card-actions justify-end">
+      <button type="submit" class="btn btn-primary">Post review</button>
+    </div>
+  </div>
+</form>

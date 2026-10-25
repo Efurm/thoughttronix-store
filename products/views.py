@@ -13,6 +13,7 @@ from django.views.generic import (
 )
 
 from accounts.mixins import StaffRequiredMixin
+from reviews.forms import ReviewForm
 from reviews.models import Review
 
 from .forms import CategoryForm, ProductForm, ProductImageForm, TagForm
@@ -84,10 +85,12 @@ class ProductDetailView(DetailView):
             reviews.filter(user=user).first() if user.is_authenticated else None
         )
         other_reviews, more_reviews = reviews.excluding_author(user).page(1)
+        can_review = Review.objects.can_write(user, product)
         context.update(
             review_summary=Review.objects.summary(product),
             own_review=own_review,
-            can_review=Review.objects.can_write(user, product),
+            can_review=can_review,
+            review_form=ReviewForm() if can_review else None,
             other_reviews=other_reviews,
             more_reviews=more_reviews,
         )

@@ -1,0 +1,14 @@
+{# The other-reviews empty state. Include with oob=True to swap it #}
+{# out-of-band; with no empty state on the page, HTMX simply skips it. #}
+<div id="review-empty-state"
+     class="py-10 text-center"
+     {% if oob %}hx-swap-oob="true"{% endif %}>
+  <p class="text-5xl">💭</p>
+  {% if own_review %}
+    <p class="mt-4 text-xl font-semibold">No one else has weighed in yet</p>
+    <p class="mt-2 opacity-70">Yours are the only thoughts on record. For now.</p>
+  {% else %}
+    <p class="mt-4 text-xl font-semibold">No reviews yet</p>
+    <p class="mt-2 opacity-70">No one has shared their thoughts. We'd have heard.</p>
+  {% endif %}
+</div>

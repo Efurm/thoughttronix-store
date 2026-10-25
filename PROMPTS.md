@@ -28,6 +28,60 @@ Each entry has this shape:
     - **Deviations:** recommendations overridden, follow-up questions asked
     - **Sideways:** failures, wrong turns, and how they were caught
 
+## 2026-10-24 — Product reviews: implemented Phase 2 (create)
+
+### Prompts
+1. /implement @prd/product-reviews.md @plans/product-reviews.md implement
+   phase 2
+2. How do I verify this phase or feature manually in the browser?
+3. update PROMPTS.md, commit the completed phase, and push it to GitHub.
+
+### Summary
+- **Outcome:** Built Phase 2 on `feature/product-reviews`:
+  - `ReviewForm` in `reviews/forms.py`: a DaisyUI radio-star rating
+    from 1 to 5 and a trimmed comment of 10 to 2,000 characters, each
+    with its own error messages.
+  - `CreateReviewView` (`POST /reviews/product/<pk>/`, namespace
+    `reviews`). It requires login, re-runs `can_write` and returns 403
+    on failure. If a simultaneous submission hits the unique
+    constraint, that is also a 403. Valid input returns the new card
+    with the summary as an out-of-band swap; invalid input returns the
+    form partial with errors beside each field.
+  - The form partial replaces the Phase 1 placeholder in the slot.
+    `ProductDetailView` passes a blank form when the viewer can write.
+  The suite went from 400 to 424 passing, and Ruff is clean.
+- **Deviations:** No recommendations were overridden. Calls the agent
+  made without asking, listed back to the user:
+  - The form has `novalidate`, so the browser never blocks a submit and
+    the server-side errors are what the customer sees.
+  - The other-reviews empty state moved into its own partial. The
+    create response refreshes it out-of-band, so it no longer says "No
+    reviews yet" beside a fresh review. The plan only names the slot
+    and summary.
+  One follow-up question (browser verification) was answered with a
+  step-by-step walkthrough using the seeded `customer`, `employee` and
+  `admin` logins.
+- **Sideways:**
+  - Bare `python` isn't on the PATH here (again), so that edit was
+    redone with the Edit tool.
+  - The first full test run was started before the last edits and took
+    over two minutes. It was stopped and re-run once the code was
+    final.
+  - Piping the manual check script into `manage.py shell` broke on
+    indentation in the interactive console. It was re-run with
+    `shell -c "exec(...)"`.
+  - The dev database didn't have the Phase 1 migration, so the product
+    page raised "no such table". Unlike Phase 1, the agent ran
+    `migrate` on the real `db.sqlite3`, which only adds the empty
+    reviews table. The check itself ran inside a rolled-back
+    transaction, after a Windows console encoding error on "★", and
+    left 0 reviews. The migrated `db.sqlite3` is committed with the
+    phase so the tracked snapshot matches the code.
+  - The browser walkthrough first included a garbled console snippet
+    for testing the 403. It was replaced in the same answer by the
+    two-tab double-submit check. The agent still never opened a real
+    browser.
+
 ## 2026-10-24 — Product reviews: implemented Phase 1 (read-only tracer bullet)
 
 ### Prompts

@@ -18,3 +18,5 @@
     {% endif %}
   </div>
 </article>
+{% if oob_summary %}{% include "reviews/partials/_summary.html" with oob=True %}{% endif %}
+{% if oob_empty_state %}{% include "reviews/partials/_empty_state.html" with oob=True own_review=review %}{% endif %}

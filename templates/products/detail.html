@@ -68,7 +68,7 @@
       {% if own_review %}
         {% include "reviews/partials/_review.html" with review=own_review %}
       {% elif can_review %}
-        <p class="opacity-70">You bought the {{ product.name }}. The review form arrives soon.</p>
+        {% include "reviews/partials/_form.html" with form=review_form %}
       {% elif not user.is_authenticated %}
         <p>
           <a href="{% url 'accounts:login' %}?next={{ request.path|urlencode }}" class="link link-primary">Sign in to leave a review</a>
@@ -82,16 +82,7 @@
       {% for review in other_reviews %}
         {% include "reviews/partials/_review.html" %}
       {% empty %}
-        <div class="py-10 text-center">
-          <p class="text-5xl">💭</p>
-          {% if own_review %}
-            <p class="mt-4 text-xl font-semibold">No one else has weighed in yet</p>
-            <p class="mt-2 opacity-70">Yours are the only thoughts on record. For now.</p>
-          {% else %}
-            <p class="mt-4 text-xl font-semibold">No reviews yet</p>
-            <p class="mt-2 opacity-70">No one has shared their thoughts. We'd have heard.</p>
-          {% endif %}
-        </div>
+        {% include "reviews/partials/_empty_state.html" %}
       {% endfor %}
     </div>
   </section>

@@ -15,6 +15,7 @@ urlpatterns = [
     path("", include("dashboard.urls")),
     path("", include("orders.urls")),
     path("", include("products.urls")),
+    path("", include("reviews.urls")),
 ]
 
 # Uploaded product images, served by runserver in development only.
