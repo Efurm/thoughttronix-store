@@ -28,6 +28,48 @@ Each entry has this shape:
     - **Deviations:** recommendations overridden, follow-up questions asked
     - **Sideways:** failures, wrong turns, and how they were caught
 
+## 2026-10-25 — Product reviews: rebuilt Phase 6 (demo reviews in the seed)
+
+### Prompts
+1. yes (go ahead with Phase 6, which has no TDD candidates)
+
+### Summary
+- **Outcome:**
+  - No TDD: the tdd skill excludes seed data, and tests never invoke
+    the seed (CLAUDE.md). The user approved going ahead on that basis.
+  - The seed's wipe step deletes reviews first. After the orders and
+    coupons, `_create_reviews` writes 14 brand-voice reviews:
+    - RecallPro 4, Seraphine Doorbell 3, MindSync 3 (one by
+      `customer`), Veil 2, Calm Collar 2
+    - reviewers are the background customers who pass
+      `Review.objects.can_write`, in username order, so nothing is
+      hard-coded against the random orders
+    - each review is dated a few days after its writer's first live
+      purchase
+    - two show "Edited" and one "Edited by ThoughtTronix staff"
+    - if the orders ever left too few buyers, the seed stops with a
+      `CommandError` rather than quietly writing fewer reviews
+  - `customer` reviewed MindSync and still has the form on DreamWeaver,
+    SyncRest, Veil and the Seraphine Mini and Wall Mount.
+  - No orders, customers, or SoulSear/Defense reviews were added, and
+    the reviews step uses no randomness, so the dashboard is unchanged.
+    The summary line now counts reviews.
+  - Checked against a scratch database and media folder (a throwaway
+    settings module in the scratchpad), never the real `db.sqlite3` or
+    `media/`: two seeds in a row both gave 14 reviews and 52 orders.
+  - The suite stays at 474 passing, and Ruff is clean.
+- **Deviations:** No recommendations were overridden and no follow-up
+  questions were asked. Made without asking: which five products get
+  reviews; the `CommandError` on too few buyers; one edited-by-author
+  and one edited-by-staff review so both notes show.
+- **Sideways:**
+  - Writing the review copy through a Python heredoc turned one `\n`
+    into a real line break and broke the file; it was fixed with the
+    Edit tool.
+  - Ruff flagged a bare `zip()` (B905), which led to the too-few-buyers
+    check.
+  - No real browser was opened.
+
 ## 2026-10-25 — Product reviews: rebuilt Phase 5 (show more) test-first
 
 ### Prompts
