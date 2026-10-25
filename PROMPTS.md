@@ -28,6 +28,126 @@ Each entry has this shape:
     - **Deviations:** recommendations overridden, follow-up questions asked
     - **Sideways:** failures, wrong turns, and how they were caught
 
+## 2026-10-24 — Product reviews: turned the PRD into a phased plan
+
+### Prompts
+1. /prd-to-plan @prd/product-reviews.md
+2. Answers to the agent's two breakdown questions: "Fold model into
+   display" (granularity) and "Match existing plans (Recommended)"
+   (format)
+3. log the session and update PROMPTS.md with the standard prompt
+
+### Summary
+- **Outcome:** Wrote `plans/product-reviews.md` in the Goal / Tasks /
+  Verification / Out of bounds format of `plans/product-images.md`, with
+  a "Durable Decisions" header (the `reviews` app, the `Review` model, the
+  rules, the URL paths under `/reviews/…` using pks, authorization, and
+  how HTMX swaps the page). It has eight phases:
+  0. Branch setup.
+  1. A read-only tracer bullet: model, rules, product-page section, admin.
+  2. Create.
+  3. Edit.
+  4. Delete.
+  5. Show more.
+  6. Seed demo reviews.
+  7. Docs and polish.
+  No code was written and nothing is committed. The work is still on
+  `feature/account-security`, so Phase 0 (merge it, then branch
+  `feature/product-reviews` from `main`) is still to do.
+- **Deviations:** One recommendation overridden. The agent proposed Phases
+  0–7 with the model and rules alone as Phase 1 (verified by tests only).
+  The user chose to fold the model into the read-only display, so the
+  first phase cuts through every layer. Edit/Delete and Show more/Seed
+  stay split, thinner than the PRD's five-step build order. The format
+  question went with the recommendation. Three calls the agent made
+  without asking, flagged after writing:
+  - "Show more" is public. The PRD says all review endpoints require
+    login, but story 3 is for signed-out shoppers too.
+  - Adding reviews in the Django admin is disabled, because it would skip
+    the purchase rule.
+  - An author's own delete brings back the "only buyers" line, not the
+    form, if their order has since been cancelled.
+  No follow-up questions were asked.
+- **Sideways:** The first exploration command failed because it looked for
+  a `plans/account-security*.md` that doesn't exist. The Account Security
+  Center has a PRD but no plan file. The agent re-ran the exploration
+  without it. Nothing else went wrong.
+
+## 2026-10-24 — Product reviews: grilled the design, wrote the PRD
+
+### Prompts
+1. /grill-me ThoughtTronix wants customers to leave product reviews. The
+   completed feature must include these business requirements: A customer
+   can leave one review per product. Each review includes a rating and a
+   written comment. A customer can leave a review only for a product they
+   have purchased. SoulSear owners are eligible but their next of kin are
+   not. Customers can edit and delete only their own reviews. Staff can
+   edit and delete any review. Creating, editing, or deleting a review
+   should update smoothly without reloading the full page or causing the
+   customer to lose their place.
+2. A (any order that isnt cancelled)
+3. A
+4. A (Whole stars, 1-5) and showing the average and count on the product page
+5. A
+6. A
+7. A
+8. A
+9. A
+10. A
+11. A
+12. A
+13. A
+14. A
+15. A
+16. Keep the seed small (A)
+17. A
+18. /to-prd
+19. yes, add the session log to PROMPTS.md with the standard prompt
+
+### Summary
+- **Outcome:** A 16-question design interview, then
+  `prd/product-reviews.md` (29 user stories, implementation and testing
+  decisions, a five-phase build order, out of scope, further notes). The
+  design: a new `reviews` app; any non-cancelled order counts as a
+  purchase; whole stars 1–5 with an average and count on the product
+  page; a required 10–2,000 character comment; one review per user and
+  product at a time (unique constraint, real delete); staff moderate
+  inline on the product page, with `updated_by` and a visible "Edited by
+  ThoughtTronix staff" note; staff can't write reviews; in-place HTMX
+  edit, `hx-confirm` delete, out-of-band summary refresh, and "Show more"
+  10 at a time; the Django admin is read-only plus delete. "Next of kin"
+  is satisfied by eligibility belonging to the ordering account, with no
+  new modelling. No code was written and nothing is committed.
+  `plans/product-reviews.md` is not written yet. The work is still on
+  `feature/account-security`; a new branch from `main` is still needed.
+- **Deviations:** One recommendation overridden. In question 15 the user
+  kept the seed small (A) instead of the recommended extra background
+  customers plus a SoulSear order dated outside the dashboard window. So
+  "Show more" and the SoulSear rule are covered by tests only, not
+  visible in the demo. In question 1 the user picked A but didn't answer
+  the follow-up (keep a review if its order is cancelled later). The
+  agent took its own recommendation (keep it) and said so. Question 3 was
+  answered with the recommended option plus the suggested summary. The
+  closing summary listed two small calls the agent made without asking:
+  sign-in returns via `?next=`, and review endpoints are login-only and
+  return partials, like the cart. The PRD added two more, reported after
+  it was written: your own review is left out of the "other reviews"
+  list, and Cancel restores the card while editing. No follow-up
+  questions were asked.
+- **Sideways:** The question 14 recommendation (give one product just
+  over 10 reviews so "Show more" can be demoed) turned out to be
+  impossible. A later look at the seed found only 10 non-staff customers
+  (one review each per product means at most 10 per product), randomly
+  generated background orders, and no Defense or SoulSear sales at all.
+  The agent corrected this openly and turned it into question 15.
+  Question 14 also included a muddled aside about "tests never invoke
+  the seed" that wasn't needed. Question 15's option C was rewritten
+  mid-answer ("Wait, no") after the agent realised a cancelled SoulSear
+  order couldn't support a review. As with the earlier PRDs, this one adds
+  a Testing Decisions section, names a few modules despite the
+  template's no-paths rule, and reuses the invented "Commissioned by
+  ThoughtTronix Customer Trust" line.
+
 ## 2026-10-23 — Account Security Center: built Phase 4 (secondary email)
 
 ### Prompts
