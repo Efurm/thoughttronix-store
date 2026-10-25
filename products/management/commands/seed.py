@@ -29,6 +29,7 @@ from django.utils.text import slugify
 from orders.models import Cart, Coupon, Order, OrderItem
 from products.images import prepare_product_image
 from products.models import Category, Product, Tag
+from reviews.models import Review
 
 TAGS = [
     "always listening",
@@ -544,6 +545,133 @@ PRODUCT_IMAGES = {
 
 PRODUCT_IMAGES_DIR = settings.BASE_DIR / "product-images"
 
+# Demo reviews: product slug -> [(rating, comment, edited by), ...]. Each
+# goes to a background customer who bought the product on an order that
+# wasn't cancelled, taken in username order, so no reviewer is hard-coded.
+# "edited by" is None, "author" (the reviewer revised it) or "employee"
+# (staff moderated it), so the page shows both edit notes. No product gets
+# near the 11 reviews "Show more" needs.
+REVIEWS = {
+    "veil": [
+        (
+            5,
+            "Ninety seconds is generous. I was out in sixty-one. "
+            "Woke up in the break room with a fresh perspective on my workload.",
+            None,
+        ),
+        (
+            4,
+            "Works exactly as promised.\nOne star off because I put it on "
+            "while standing, which the description does warn about.",
+            "author",
+        ),
+        (
+            5,
+            "My manager bought one for the whole team. Our quarterly "
+            "engagement scores have never been more peaceful.",
+            None,
+        ),
+        (
+            3,
+            "Great sleep, every time. I just wish I could remember "
+            "deciding to wear it.",
+            None,
+        ),
+    ],
+    "mindsync": [
+        (
+            5,
+            "Installed on a Tuesday. By Wednesday my thoughts were "
+            "autocompleting. I can't imagine thinking the old way.",
+            None,
+        ),
+        (
+            4,
+            "Ambient recall is incredible. The ambient ads during recall "
+            "are less incredible, but they are relevant.",
+            None,
+        ),
+        (
+            5,
+            "Integration is permanent, in the good way. I checked.",
+            None,
+        ),
+    ],
+    "dreamweaver": [
+        (
+            5,
+            "I rehearsed my performance review six nights running. "
+            "Nailed it. I don't recall agreeing to the pay cut, but the "
+            "dream logs say I did.",
+            None,
+        ),
+        (
+            4,
+            "Wonderful product. My dreams are indexed and searchable now, "
+            "and so, apparently, are my nightmares.",
+            None,
+        ),
+        (
+            2,
+            "Retained unrequested material. Will not elaborate.",
+            "employee",
+        ),
+    ],
+    "recallpro": [
+        (
+            5,
+            "I remember everything now. Every meeting. Every word. "
+            "Every pause before every word.",
+            None,
+        ),
+        (
+            3,
+            "Life-changing, as advertised. Looking forward to the "
+            "forgetting update whenever it ships.",
+            None,
+        ),
+        (
+            1,
+            "Saw a commercial for this in 2019. Still seeing it. In high definition.",
+            None,
+        ),
+        (
+            4,
+            "Our team finds it essential for compliance. Nobody can say "
+            "they don't remember the onboarding policy anymore.",
+            None,
+        ),
+        (
+            5,
+            "Found my car keys, my high school locker combination, and a "
+            "grudge I had misplaced. Very thorough.",
+            None,
+        ),
+    ],
+    "calm-collar": [
+        (
+            5,
+            "Bedtime used to take an hour. Now it takes a soft click.",
+            None,
+        ),
+        (
+            4,
+            'Our son says it feels "like being told shhh from inside," '
+            "just like the box says. We love an honest product.",
+            None,
+        ),
+    ],
+}
+
+# The customer demo login reviews one purchase and leaves the rest
+# unreviewed, so both states of the review slot show after seeding.
+CUSTOMER_REVIEW = (
+    "mindsync",
+    5,
+    "One week in and I've never felt more synchronized.\n\n"
+    "My calendar knows what I want before I do. Highly recommend.",
+)
+
 
 class Command(BaseCommand):
     help = "Wipe and rebuild the demo world: catalog, images, accounts, orders."
@@ -566,6 +694,7 @@ class Command(BaseCommand):
         self._create_customer_cart()
         self._create_orders()
         self._create_coupons()
+        self._create_reviews()
 
         self.stdout.write(
             self.style.SUCCESS(
@@ -576,6 +705,7 @@ class Command(BaseCommand):
                 f"{get_user_model().objects.count()} users, "
                 f"{Order.objects.count()} orders, "
                 f"{Coupon.objects.count()} coupons, "
+                f"{Review.objects.count()} reviews, "
                 f"and a live cart for 'customer'."
             )
         )
@@ -614,6 +744,7 @@ class Command(BaseCommand):
 
     def _wipe(self):
         """Remove everything the seed owns; the rebuild starts from zero."""
+        Review.objects.all().delete()
         Order.objects.all().delete()
         Coupon.objects.all().delete()  # after orders, which protect them
         Cart.objects.all().delete()
@@ -786,3 +917,78 @@ class Command(BaseCommand):
                 updated_by=admin,
             )
             coupon.products.set(Product.objects.filter(slug__in=slugs))
+
+    def _create_reviews(self):
+        """Demo reviews, each by a customer who really bought the product.
+
+        Reviewers come from the seeded orders, not a hard-coded list, so
+        every review passes the purchase rule. Each is dated a few days
+        after its reviewer's first purchase of the product; the seeded RNG
+        keeps those dates identical on every run.
+        """
+        rng = random.Random(2026)
+        now = timezone.now()
+        User = get_user_model()
+        employee = User.objects.get(username="employee")
+        background = [username for username, *_ in BACKGROUND_CUSTOMERS]
+
+        for slug, entries in REVIEWS.items():
+            product = Product.objects.get(slug=slug)
+            buyers = (
+                OrderItem.objects.filter(product=product)
+                .exclude(order__status=Order.Status.CANCELLED)
+                .values("order__user")
+            )
+            reviewers = User.objects.filter(
+                username__in=background, pk__in=buyers
+            ).order_by("username")
+            for user, (rating, comment, edited_by) in zip(
+                reviewers, entries, strict=False
+            ):
+                self._build_review(
+                    user=user,
+                    product=product,
+                    rating=rating,
+                    comment=comment,
+                    editor={None: None, "author": user, "employee": employee}[
+                        edited_by
+                    ],
+                    now=now,
+                    rng=rng,
+                )
+
+        slug, rating, comment = CUSTOMER_REVIEW
+        self._build_review(
+            user=User.objects.get(username="customer"),
+            product=Product.objects.get(slug=slug),
+            rating=rating,
+            comment=comment,
+            editor=None,
+            now=now,
+            rng=rng,
+        )
+
+    def _build_review(self, *, user, product, rating, comment, editor, now, rng):
+        """One review, backdated after the purchase; ``editor`` marks it edited."""
+        bought_at = (
+            Order.objects.filter(user=user, items__product=product)
+            .exclude(status=Order.Status.CANCELLED)
+            .order_by("created_at")
+            .values_list("created_at", flat=True)
+            .first()
+        )
+        created_at = min(bought_at + timedelta(days=rng.randint(2, 10)), now)
+        updated_at = created_at
+        if editor is not None:
+            updated_at = min(created_at + timedelta(days=rng.randint(1, 5)), now)
+        review = Review.objects.create(
+            user=user,
+            product=product,
+            rating=rating,
+            comment=comment,
+            updated_by=editor,
+        )
+        # auto_now_add and auto_now overwrite dates on save; update() doesn't.
+        Review.objects.filter(pk=review.pk).update(
+            created_at=created_at, updated_at=updated_at
+        )

@@ -28,6 +28,64 @@ Each entry has this shape:
     - **Deviations:** recommendations overridden, follow-up questions asked
     - **Sideways:** failures, wrong turns, and how they were caught
 
+## 2026-10-24 — Product reviews: implemented Phase 6 (demo reviews in the seed)
+
+### Prompts
+1. /implement @prd/product-reviews.md @plans/product-reviews.md implement
+   phase 6
+2. How do I verify this phase or feature manually in the browser?
+3. update PROMPTS.md, commit the completed phase, and push it to GitHub.
+
+### Summary
+- **Outcome:** Built Phase 6 on `feature/product-reviews`, all in
+  `products/management/commands/seed.py`:
+  - The wipe step deletes reviews first.
+  - A `REVIEWS` table gives Veil, MindSync, DreamWeaver, RecallPro and
+    Calm Collar 2–5 brand-voice reviews each, 17 in all. Reviewers are
+    the background customers who bought the product on an order that
+    wasn't cancelled, taken in username order; nobody is hard-coded.
+  - Each review is dated 2–10 days after the reviewer's first purchase
+    of the product. The dates come from their own `random.Random(2026)`,
+    so the order history (and the dashboard) is exactly as before.
+  - One Veil review is author-edited and one DreamWeaver review is
+    staff-edited (`updated_by` = `employee`), so both edit notes show.
+  - `customer` reviews MindSync (`CUSTOMER_REVIEW`). DreamWeaver,
+    SyncRest, Veil and the rest of their purchases stay unreviewed, so
+    the form shows.
+  - The seed's summary line includes the review count (18).
+  Verified by seeding twice (18 both times), checking the MindSync,
+  DreamWeaver and Veil pages as `customer` with the Django test client,
+  and loading the admin review list. The suite stayed at 463 passing,
+  and Ruff is clean.
+- **Deviations:** No recommendations were overridden. Calls the agent
+  made without asking:
+  - The SoulSear Authorization Case (an accessory that background
+    customers do buy) was left unreviewed, to keep SoulSear out of
+    the demo data.
+  - If a product has fewer buyers than written reviews, the extras
+    are dropped (`zip(..., strict=False)`).
+  - Dashboard figures weren't compared by hand. The agent relied on
+    the order code and its random seed being untouched.
+  One follow-up question (browser verification) was answered with a
+  walkthrough. The agent never opened the pages in a browser.
+- **Sideways:**
+  - The first reviewer query chained `.exclude()` across the orders
+    relation. That would have dropped any customer with *any*
+    cancelled order. The agent caught it before the first run and
+    switched to an `OrderItem` subquery, the same shape as `can_write`.
+  - The customer's comment first said "four months ago", which didn't
+    match its date. It was reworded.
+  - Ruff flagged `zip()` without `strict=` (B905); `strict=False` was
+    added.
+  - The full `pytest` run passed the tool timeout and finished in the
+    background. The page check in that same command failed with
+    `DisallowedHost` (the test client's `testserver` host). The agent
+    re-ran it with `SERVER_NAME='localhost'`.
+  - Each seed run deletes the files under `media/products/` and
+    rewrites `db.sqlite3`. Both are still tracked in git even though
+    `media/` is gitignored. That was already true before this phase.
+    They were left out of the commit and reported to the user.
+
 ## 2026-10-24 — Product reviews: implemented Phase 5 (show more)
 
 ### Prompts
