@@ -20,7 +20,8 @@ Run the tdd skill and follow its instructions and implement the remaining requir
 
 ## 3. Run Feedback Loops
 
-Run the test suite, linter, and formatter.
+Run the test suite, linter, and formatter. 
+Run pytest and ruff
 
 ## 4. Manual Verification
 
@@ -29,7 +30,5 @@ Answer this question: How do I verify this phase or feature manually in the brow
 ## 5. Finish the Phase
 
 Update PROMPTS.md using the format specified in that file.
-
 Commit the completed phase.
-
 Push the commit to GitHub.
