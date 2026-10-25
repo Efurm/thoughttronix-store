@@ -14,7 +14,7 @@ from django.views.generic import (
 
 from accounts.mixins import StaffRequiredMixin
 from reviews.forms import ReviewForm
-from reviews.models import REVIEWS_PER_PAGE, Review
+from reviews.models import Review
 
 from .forms import CategoryForm, ProductForm, ProductImageForm, TagForm
 from .models import Category, Product, Tag
@@ -81,7 +81,6 @@ class ProductDetailView(DetailView):
         context = super().get_context_data(**kwargs)
         user = self.request.user
         reviews = Review.objects.filter(product=self.object).for_display()
-        others = list(reviews.excluding_author(user)[: REVIEWS_PER_PAGE + 1])
         context["review_summary"] = Review.objects.summary(self.object)
         context["own_review"] = (
             reviews.filter(user=user).first() if user.is_authenticated else None
@@ -89,8 +88,11 @@ class ProductDetailView(DetailView):
         context["can_write_review"] = Review.objects.can_write(user, self.object)
         if context["can_write_review"]:
             context["review_form"] = ReviewForm()
-        context["reviews"] = others[:REVIEWS_PER_PAGE]
-        context["has_more_reviews"] = len(others) > REVIEWS_PER_PAGE
+        # The same first batch Show more continues from (reviews:more).
+        context["reviews"], context["has_more_reviews"] = reviews.excluding_author(
+            user
+        ).page(1)
+        context["next_page"] = 2
         return context
 
 

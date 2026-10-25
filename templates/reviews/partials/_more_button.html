@@ -1,0 +1,9 @@
+{# The Show more button. It replaces itself with the next batch, which #}
+{# ends with its own button while more remain — so reviews append below #}
+{# and the page never navigates. #}
+<div class="flex justify-center pt-2">
+  <button type="button" class="btn btn-outline btn-sm"
+          hx-get="{% url 'reviews:more' product.pk next_page %}"
+          hx-target="closest div"
+          hx-swap="outerHTML">Show more reviews</button>
+</div>

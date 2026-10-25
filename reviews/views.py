@@ -9,6 +9,7 @@ carries the rating summary as an out-of-band swap.
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import PermissionDenied
 from django.db import IntegrityError, transaction
+from django.http import Http404
 from django.shortcuts import get_object_or_404, render
 from django.views import View
 
@@ -48,6 +49,31 @@ class ReviewCreateView(LoginRequiredMixin, View):
             own_review=review,
             oob_summary=True,
             summary=Review.objects.summary(product),
+        )
+
+
+class ReviewMoreView(View):
+    """HTMX: the next batch of reviews. Public — it only reads."""
+
+    def get(self, request, pk, page):
+        if page < 1:
+            raise Http404("Pages start at 1.")
+        product = get_object_or_404(Product, pk=pk)
+        reviews, has_more = (
+            Review.objects.filter(product=product)
+            .excluding_author(request.user)
+            .for_display()
+            .page(page)
+        )
+        return render(
+            request,
+            "reviews/partials/_more.html",
+            {
+                "product": product,
+                "reviews": reviews,
+                "has_more_reviews": has_more,
+                "next_page": page + 1,
+            },
         )
 
 

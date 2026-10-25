@@ -18,6 +18,13 @@ class ReviewQuerySet(models.QuerySet):
         """Reviews with their authors and editors loaded, ready for cards."""
         return self.select_related("user", "updated_by")
 
+    def page(self, number):
+        """Batch ``number`` (from 1) of ``REVIEWS_PER_PAGE`` reviews, and
+        whether another batch follows."""
+        start = (number - 1) * REVIEWS_PER_PAGE
+        batch = list(self[start : start + REVIEWS_PER_PAGE + 1])
+        return batch[:REVIEWS_PER_PAGE], len(batch) > REVIEWS_PER_PAGE
+
     def excluding_author(self, user):
         """Everyone's reviews but ``user``'s (all of them when signed out)."""
         if not user.is_authenticated:

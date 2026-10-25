@@ -78,6 +78,7 @@
           <p class="mt-2 opacity-70">Every thought counts. Especially the first.</p>
         </div>
       {% endfor %}
+      {% if has_more_reviews %}{% include "reviews/partials/_more_button.html" %}{% endif %}
     </div>
   </section>
 {% endblock %}

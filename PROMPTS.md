@@ -28,6 +28,47 @@ Each entry has this shape:
     - **Deviations:** recommendations overridden, follow-up questions asked
     - **Sideways:** failures, wrong turns, and how they were caught
 
+## 2026-10-25 — Product reviews: rebuilt Phase 5 (show more) test-first
+
+### Prompts
+1. yes (start Phase 5)
+2. yes (the two TDD behaviors)
+3. yes (behavior 1's failing test)
+4. yes (behavior 1 green; on to behavior 2)
+5. yes (behavior 2's failing test)
+6. yes (behavior 2 green; finish the phase)
+
+### Summary
+- **Outcome:**
+  - The user approved two behaviors, and each went through an approved
+    failing test before any code:
+    1. With 25 reviews, Show more's page 2 returns #11–#20 newest first
+       with a button for page 3, page 3 returns #21–#25 with no button,
+       and page 4 returns nothing. This is `ReviewQuerySet.page(n)`
+       (one extra row tells whether more follow) and the public
+       `GET /reviews/product/<pk>/page/<n>/` (`reviews:more`).
+    2. A signed-in customer's own review never appears in any batch and
+       shifts no page boundary; the endpoint chains `excluding_author`
+       before paging.
+  - The rest was built and tested normally:
+    - the product page now takes its first batch from `page(1)`, so it
+      and Show more share one definition
+    - a `_more_button.html` partial that replaces itself with the next
+      batch (`_more.html`), so reviews append below and the page never
+      navigates
+    - page 0 and a missing product return 404
+    - tests that the endpoint is public and returns a partial, that the
+      page shows ten and a button, that exactly ten show no button, that
+      the own review stays out of the first batch, and that staff get
+      Edit and Delete on loaded reviews
+  - The suite went from 462 to 474 passing, and Ruff is clean.
+- **Deviations:** No recommendations were overridden and no follow-up
+  questions were asked. Made without asking: page 0 is a 404; a page
+  past the end returns an empty batch rather than a 404.
+- **Sideways:** Nothing failed outside the planned failing tests. A
+  one-value `parametrize` was simplified to a plain test. The real
+  `db.sqlite3` was never migrated, and no real browser was opened.
+
 ## 2026-10-25 — Product reviews: rebuilt Phase 4 (delete) test-first
 
 ### Prompts
