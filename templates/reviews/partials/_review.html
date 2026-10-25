@@ -1,0 +1,35 @@
+{% load review_extras %}
+{# One review's card, swapped as a unit by its id. Edit and Delete show only #}
+{# when the viewer passes the same can_change rule the server enforces. #}
+<article id="review-{{ review.pk }}" class="card bg-base-100 shadow-sm">
+  <div class="card-body gap-2">
+    <div class="flex flex-wrap items-center justify-between gap-2">
+      <div class="flex items-center gap-3">
+        <span class="text-warning" aria-label="Rated {{ review.rating }} out of 5">{% for star in "12345" %}{% if forloop.counter <= review.rating %}★{% else %}<span class="opacity-30">★</span>{% endif %}{% endfor %}</span>
+        <span class="font-semibold">{{ review.reviewer_name }}</span>
+      </div>
+      <time datetime="{{ review.created_at|date:'c' }}" class="text-sm opacity-60">{{ review.created_at|date:"M j, Y" }}</time>
+    </div>
+    <p class="whitespace-normal break-words">{{ review.comment|linebreaksbr }}</p>
+    {% if review.is_edited_by_staff %}
+      <p class="text-xs italic opacity-60">Edited by ThoughtTronix staff</p>
+    {% elif review.is_edited %}
+      <p class="text-xs italic opacity-60">Edited</p>
+    {% endif %}
+    {% if review|can_change:user %}
+      <div class="card-actions justify-end">
+        <button type="button" class="btn btn-ghost btn-xs"
+                hx-get="{% url 'reviews:edit' review.pk %}"
+                hx-target="#review-{{ review.pk }}"
+                hx-swap="outerHTML">Edit</button>
+        {# The author's delete re-renders their slot; staff deleting someone #}
+        {# else's review replace just this card with nothing. #}
+        <button type="button" class="btn btn-ghost btn-xs text-error"
+                hx-post="{% url 'reviews:delete' review.pk %}"
+                hx-confirm="Delete {% if review.user == user %}your{% else %}{{ review.reviewer_name }}'s{% endif %} review? This can't be undone."
+                {% if review.user == user %}hx-target="#review-slot" hx-swap="innerHTML"{% else %}hx-target="#review-{{ review.pk }}" hx-swap="outerHTML"{% endif %}>Delete</button>
+      </div>
+    {% endif %}
+  </div>
+</article>
+{% if oob_summary %}{% include "reviews/partials/_summary.html" with oob=True %}{% endif %}

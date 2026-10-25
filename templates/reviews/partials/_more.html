@@ -1,0 +1,6 @@
+{# The next batch of reviews for Show more, ending with its own button #}
+{# while more remain. #}
+{% for review in reviews %}
+  {% include "reviews/partials/_review.html" %}
+{% endfor %}
+{% if has_more_reviews %}{% include "reviews/partials/_more_button.html" %}{% endif %}

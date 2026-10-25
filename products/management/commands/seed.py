@@ -2,8 +2,8 @@
 
 Destructive and idempotent: every run wipes the catalog, its images in
 media/products/, and the demo accounts, then rebuilds the identical demo
-world, with marketing's imagery from product-images/. Run it whenever the
-database should return to a known state.
+world, with marketing's imagery from product-images/ and a few demo reviews.
+Run it whenever the database should return to a known state.
 
 Demo logins (documented in the README):
 
@@ -29,6 +29,7 @@ from django.utils.text import slugify
 from orders.models import Cart, Coupon, Order, OrderItem
 from products.images import prepare_product_image
 from products.models import Category, Product, Tag
+from reviews.models import Review
 
 TAGS = [
     "always listening",
@@ -522,6 +523,115 @@ COUPONS = [
 ]
 
 
+# Demo reviews in the brand voice: product slug -> [(rating, comment, edit)].
+# Reviewers are the background customers who bought the product on an
+# order that wasn't cancelled, in username order — never hard-coded, since
+# the background orders are random (with a fixed seed). ``edit`` marks a
+# review later edited by its author ("author") or by staff ("staff"), so
+# both edit notes show. No SoulSear or Defense product is reviewed.
+PRODUCT_REVIEWS = {
+    "recallpro": [
+        (
+            5,
+            "I can finally prove what my sister said at Thanksgiving 2009.\n"
+            "Worth every cent.",
+            None,
+        ),
+        (
+            4,
+            "Remembers everything, as promised. Including things I would "
+            "rather it didn't. One star off for that.",
+            "author",
+        ),
+        (
+            5,
+            'Searched "keys" and it played back the exact moment I set '
+            "them down. Then it played back the moment I set them down in "
+            "2017, which I had also wondered about.",
+            None,
+        ),
+        (
+            3,
+            "Total recall is a lot. Some nights I just want to forget the "
+            "commute. Customer support says that's a feature.",
+            None,
+        ),
+    ],
+    "seraphine-doorbell": [
+        (
+            5,
+            "Greeted my mother-in-law by name before she reached the porch. "
+            "She has not visited since. Five stars.",
+            None,
+        ),
+        (
+            4,
+            "Very accurate mood estimation. It flagged the mail carrier as "
+            '"quietly resentful" and, honestly, fair.',
+            None,
+        ),
+        (
+            2,
+            "It logs everyone who walks past. I asked where the log goes and "
+            'the app said "somewhere safe."',
+            "staff",
+        ),
+    ],
+    "veil": [
+        (
+            5,
+            "Ninety seconds, as advertised. I've stopped setting alarms; "
+            "Veil seems to know when I'm needed.",
+            None,
+        ),
+        (
+            4,
+            "Best sleep of my life. I do wake up with a faint memory of a "
+            "survey, but that's probably nothing.",
+            None,
+        ),
+    ],
+    "mindsync": [
+        (
+            5,
+            "Thought-to-text changed my life. My emails are shorter and "
+            "kinder now, and I'm told some of them are mine.",
+            None,
+        ),
+        (
+            4,
+            "Seamless sync between me and my devices. Occasionally between me "
+            "and my neighbor's devices too, which keeps things interesting.",
+            "author",
+        ),
+    ],
+    "calm-collar": [
+        (
+            5,
+            "Our four-year-old hasn't had a tantrum in weeks. She hasn't had "
+            "much of anything in weeks, really. Very peaceful home.",
+            None,
+        ),
+        (
+            3,
+            "Works well, but the counter-pulse picks up on my frustration "
+            "too, from across the room. Please clarify the range.",
+            None,
+        ),
+    ],
+}
+
+# The customer demo login reviews one purchase and leaves the rest
+# unreviewed, so right after seeding one product page shows their card and
+# the others they bought show the form.
+CUSTOMER_REVIEW = (
+    "mindsync",
+    5,
+    "Six months in and I can't remember life before MindSync. "
+    "Literally — it's been archived.",
+)
+
+
 # Marketing's product imagery: file in product-images/ -> product slug.
 # Each goes through products/images.py, exactly like an employee upload.
 # "SyncRest GPT Text.png" is deliberately absent: it is the full ad layout,
@@ -566,6 +676,7 @@ class Command(BaseCommand):
         self._create_customer_cart()
         self._create_orders()
         self._create_coupons()
+        self._create_reviews()
 
         self.stdout.write(
             self.style.SUCCESS(
@@ -576,6 +687,7 @@ class Command(BaseCommand):
                 f"{get_user_model().objects.count()} users, "
                 f"{Order.objects.count()} orders, "
                 f"{Coupon.objects.count()} coupons, "
+                f"{Review.objects.count()} reviews, "
                 f"and a live cart for 'customer'."
             )
         )
@@ -614,6 +726,7 @@ class Command(BaseCommand):
 
     def _wipe(self):
         """Remove everything the seed owns; the rebuild starts from zero."""
+        Review.objects.all().delete()
         Order.objects.all().delete()
         Coupon.objects.all().delete()  # after orders, which protect them
         Cart.objects.all().delete()
@@ -786,3 +899,65 @@ class Command(BaseCommand):
                 updated_by=admin,
             )
             coupon.products.set(Product.objects.filter(slug__in=slugs))
+
+    def _create_reviews(self):
+        """Demo reviews by real buyers, dated a few days after they bought.
+
+        Every reviewer passes ``Review.objects.can_write``, so the seed
+        obeys the same purchase rule as the product page. Adds no orders,
+        so the dashboard's figures are unchanged.
+        """
+        User = get_user_model()
+        background = list(
+            User.objects.filter(
+                username__in=[username for username, *_ in BACKGROUND_CUSTOMERS]
+            ).order_by("username")
+        )
+        for slug, entries in PRODUCT_REVIEWS.items():
+            product = Product.objects.get(slug=slug)
+            buyers = [
+                user for user in background if Review.objects.can_write(user, product)
+            ]
+            if len(buyers) < len(entries):
+                raise CommandError(
+                    f"Only {len(buyers)} background customers can review "
+                    f"{slug}; PRODUCT_REVIEWS has {len(entries)}."
+                )
+            for user, (rating, comment, edit) in zip(
+                buyers[: len(entries)], entries, strict=True
+            ):
+                self._create_review(user, product, rating, comment, edit)
+
+        slug, rating, comment = CUSTOMER_REVIEW
+        self._create_review(
+            User.objects.get(username="customer"),
+            Product.objects.get(slug=slug),
+            rating,
+            comment,
+            edit=None,
+        )
+
+    def _create_review(self, user, product, rating, comment, edit):
+        """One review, backdated after its writer's first live purchase."""
+        now = timezone.now()
+        bought_at = (
+            Order.objects.filter(user=user, items__product=product)
+            .exclude(status=Order.Status.CANCELLED)
+            .earliest("created_at")
+            .created_at
+        )
+        written_at = bought_at + min(timedelta(days=3), (now - bought_at) / 2)
+        updated_at, updated_by = written_at, None
+        if edit:
+            updated_at = written_at + min(timedelta(days=2), (now - written_at) / 2)
+            updated_by = (
+                user
+                if edit == "author"
+                else get_user_model().objects.get(username="employee")
+            )
+        review = Review.objects.create(
+            user=user, product=product, rating=rating, comment=comment
+        )
+        Review.objects.filter(pk=review.pk).update(
+            created_at=written_at, updated_at=updated_at, updated_by=updated_by
+        )

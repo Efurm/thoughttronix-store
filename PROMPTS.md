@@ -28,6 +28,473 @@ Each entry has this shape:
     - **Deviations:** recommendations overridden, follow-up questions asked
     - **Sideways:** failures, wrong turns, and how they were caught
 
+## 2026-10-25 — Product reviews: rebuilt Phase 7 (documentation and polish)
+
+### Prompts
+1. yes (go ahead with Phase 7, then restore the stashed local edits)
+
+### Summary
+- **Outcome:**
+  - No TDD: documentation has no candidates under the tdd skill.
+  - `CLAUDE.md` gained a `reviews/` entry in the project layout:
+    - the model, and the rules on it and its queryset
+    - the `can_change` template filter
+    - inline staff moderation and the "Edited by ThoughtTronix staff"
+      note
+    - the read-only admin
+    - HTMX-only endpoints that each re-run their rule
+    The "exactly four deep modules" line is unchanged.
+  - `README.md`:
+    - the intro mentions reviews
+    - a new "Product reviews" section, including the seed's demo
+      reviews
+    - `customer`'s row notes their one review
+    - the repo layout counts five apps, with `reviews`
+  - A polish pass found no leftovers (no placeholder copy, no stray
+    imports). The suite stays at 474 passing; Ruff, the formatter
+    check, and the migration check are clean.
+  - Across Phases 1–7 the rebuild used the tdd skill: 14 behaviors were
+    proposed and approved, 13 went through an approved failing test,
+    and one (Phase 4's staff delete) was reported as passing on its
+    first run.
+- **Deviations:** No recommendations were overridden and no follow-up
+  questions were asked.
+- **Sideways:** Nothing went wrong. No real browser was opened during
+  the rebuild; every page was checked through Django's test client.
+
+## 2026-10-25 — Product reviews: rebuilt Phase 6 (demo reviews in the seed)
+
+### Prompts
+1. yes (go ahead with Phase 6, which has no TDD candidates)
+
+### Summary
+- **Outcome:**
+  - No TDD: the tdd skill excludes seed data, and tests never invoke
+    the seed (CLAUDE.md). The user approved going ahead on that basis.
+  - The seed's wipe step deletes reviews first. After the orders and
+    coupons, `_create_reviews` writes 14 brand-voice reviews:
+    - RecallPro 4, Seraphine Doorbell 3, MindSync 3 (one by
+      `customer`), Veil 2, Calm Collar 2
+    - reviewers are the background customers who pass
+      `Review.objects.can_write`, in username order, so nothing is
+      hard-coded against the random orders
+    - each review is dated a few days after its writer's first live
+      purchase
+    - two show "Edited" and one "Edited by ThoughtTronix staff"
+    - if the orders ever left too few buyers, the seed stops with a
+      `CommandError` rather than quietly writing fewer reviews
+  - `customer` reviewed MindSync and still has the form on DreamWeaver,
+    SyncRest, Veil and the Seraphine Mini and Wall Mount.
+  - No orders, customers, or SoulSear/Defense reviews were added, and
+    the reviews step uses no randomness, so the dashboard is unchanged.
+    The summary line now counts reviews.
+  - Checked against a scratch database and media folder (a throwaway
+    settings module in the scratchpad), never the real `db.sqlite3` or
+    `media/`: two seeds in a row both gave 14 reviews and 52 orders.
+  - The suite stays at 474 passing, and Ruff is clean.
+- **Deviations:** No recommendations were overridden and no follow-up
+  questions were asked. Made without asking: which five products get
+  reviews; the `CommandError` on too few buyers; one edited-by-author
+  and one edited-by-staff review so both notes show.
+- **Sideways:**
+  - Writing the review copy through a Python heredoc turned one `\n`
+    into a real line break and broke the file; it was fixed with the
+    Edit tool.
+  - Ruff flagged a bare `zip()` (B905), which led to the too-few-buyers
+    check.
+  - No real browser was opened.
+
+## 2026-10-25 — Product reviews: rebuilt Phase 5 (show more) test-first
+
+### Prompts
+1. yes (start Phase 5)
+2. yes (the two TDD behaviors)
+3. yes (behavior 1's failing test)
+4. yes (behavior 1 green; on to behavior 2)
+5. yes (behavior 2's failing test)
+6. yes (behavior 2 green; finish the phase)
+
+### Summary
+- **Outcome:**
+  - The user approved two behaviors, and each went through an approved
+    failing test before any code:
+    1. With 25 reviews, Show more's page 2 returns #11–#20 newest first
+       with a button for page 3, page 3 returns #21–#25 with no button,
+       and page 4 returns nothing. This is `ReviewQuerySet.page(n)`
+       (one extra row tells whether more follow) and the public
+       `GET /reviews/product/<pk>/page/<n>/` (`reviews:more`).
+    2. A signed-in customer's own review never appears in any batch and
+       shifts no page boundary; the endpoint chains `excluding_author`
+       before paging.
+  - The rest was built and tested normally:
+    - the product page now takes its first batch from `page(1)`, so it
+      and Show more share one definition
+    - a `_more_button.html` partial that replaces itself with the next
+      batch (`_more.html`), so reviews append below and the page never
+      navigates
+    - page 0 and a missing product return 404
+    - tests that the endpoint is public and returns a partial, that the
+      page shows ten and a button, that exactly ten show no button, that
+      the own review stays out of the first batch, and that staff get
+      Edit and Delete on loaded reviews
+  - The suite went from 462 to 474 passing, and Ruff is clean.
+- **Deviations:** No recommendations were overridden and no follow-up
+  questions were asked. Made without asking: page 0 is a 404; a page
+  past the end returns an empty batch rather than a 404.
+- **Sideways:** Nothing failed outside the planned failing tests. A
+  one-value `parametrize` was simplified to a plain test. The real
+  `db.sqlite3` was never migrated, and no real browser was opened.
+
+## 2026-10-25 — Product reviews: rebuilt Phase 4 (delete) test-first
+
+### Prompts
+1. yes (start Phase 4)
+2. yes (the two TDD behaviors)
+3. yes (behavior 1's failing test)
+4. yes (behavior 1 green; on to behavior 2)
+5. yes (behavior 2 passed on its first run; keep it as an ordinary test
+   and make the branch explicit)
+
+### Summary
+- **Outcome:**
+  - The user approved two behaviors; the non-owner 403 was left out
+    because Phase 3's tested `ChangeReviewMixin` already settles it.
+    1. An author's own delete removes the row and re-renders their slot
+       (the form if they can write again, or the "only buyers" line if
+       their order has since been cancelled) with the out-of-band
+       summary. This went through an approved failing test first.
+    2. A staff delete of someone else's review answers with only the
+       out-of-band summary, so the card's own swap removes it. Its test
+       passed on the first run, so it wasn't a TDD cycle (see Sideways).
+       It was kept as an ordinary test, and the view now branches on
+       whose review it is.
+  - The rest was built and tested normally:
+    - `POST /reviews/<pk>/delete/` (`reviews:delete`)
+    - create and delete share a `render_slot` helper; `_slot.html` adds
+      the out-of-band summary itself and includes the author's card
+      without one, so there's never a duplicate
+    - a Delete button with `hx-confirm` ("Delete your review? …" or
+      "Delete <name>'s review? …") that targets the slot on the author's
+      own card and the card itself for staff
+    - tests for the signed-out redirect, a non-owner's 403 (the review
+      stays), GET not allowed, a missing review's 404, writing a new
+      review after deleting, the summary after a staff delete, and who
+      sees Delete
+  - The suite went from 449 to 462 passing, and Ruff is clean.
+- **Deviations:** No recommendations were overridden. One follow-up
+  question was asked: what to do when behavior 2's test passed first
+  time; the user took the recommendation.
+- **Sideways:**
+  - Behavior 2's test passed before any code changed. Behavior 1
+    re-renders the acting user's slot, which is always empty for staff,
+    so the result was right only by coincidence. The agent found no
+    failing variant, stopped, explained, and made the branch explicit
+    with the user's approval.
+  - A page test expected the apostrophe in "customer's" as `&#x27;`,
+    but it's template text and isn't escaped; the test was fixed.
+  - The real `db.sqlite3` was never migrated, and no real browser was
+    opened.
+
+## 2026-10-25 — Product reviews: rebuilt Phase 3 (edit) test-first
+
+### Prompts
+1. yes (start Phase 3)
+2. yes (the three TDD behaviors)
+3. yes (behavior 1's failing test)
+4. yes (behavior 1 green; on to behavior 2)
+5. yes (behavior 2's failing test)
+6. yes (behavior 2 green; on to behavior 3)
+7. yes (behavior 3's failing test)
+8. yes (behavior 3 green; finish the phase)
+
+### Summary
+- **Outcome:**
+  - The user approved three behaviors, and each went through an
+    approved failing test before any code:
+    1. Another customer gets 403 on the edit form, the save and cancel,
+       and the review is unchanged. This is a shared
+       `ChangeReviewMixin.get_review()` that asks `can_change`.
+    2. A valid edit saves, sets `updated_by` to the acting user, and
+       returns the card with "Edited" (author) or "Edited by
+       ThoughtTronix staff" (staff), plus the out-of-band summary.
+    3. An invalid edit saves nothing and returns the form under the
+       card's own `review-<pk>` id, with the error, what was typed, and
+       no out-of-band summary.
+  - The rest was built and tested normally:
+    - `GET /reviews/<pk>/edit/` swaps in the pre-filled form, and
+      `GET /reviews/<pk>/` (`reviews:card`) is what Cancel restores
+    - `_form.html` gained an edit mode: it takes the card's id and
+      place, has Save and Cancel, and is titled "Edit your review" or
+      "Edit <name>'s review"
+    - an Edit button on the card, shown through a `can_change` template
+      filter (`review_extras`), so the page and the server ask the same
+      rule
+    - tests for the signed-out redirect, 404s, the pre-filled form,
+      cancel, the notes as signed-out shoppers see them, editing after
+      a cancelled order, and who sees the Edit button
+  - The suite went from 428 to 449 passing, and Ruff is clean.
+- **Deviations:** No recommendations were overridden and no follow-up
+  questions were asked. Made without asking: Cancel's card endpoint
+  requires `can_change` (as the plan says), though the card is public
+  on the page; the staff form names whose review it is.
+- **Sideways:** Nothing failed. One test used the bare string
+  `"CANCELLED"` and was tidied to `Order.Status.CANCELLED`. The real
+  `db.sqlite3` was never migrated, and no real browser was opened.
+
+## 2026-10-25 — Product reviews: rebuilt Phase 2 (create) test-first
+
+### Prompts
+1. yes (start Phase 2)
+2. yes (the three TDD behaviors)
+3. yes (behavior 1's failing test)
+4. yes (behavior 1 green; on to behavior 2)
+5. run the test
+6. the 5 red results are confirmed
+7. approved (behavior 2's failing test)
+8. yes (behavior 2 green; on to behavior 3)
+9. yes (behavior 3's failing test)
+10. yes (behavior 3 green; finish the phase)
+11. do it (retry after the shell outage)
+
+### Summary
+- **Outcome:**
+  - The user approved three behaviors, and each went through an
+    approved failing test before any code:
+    1. `ReviewForm` trims the comment, then requires 10–2,000
+       characters, with its own messages.
+    2. The create endpoint answers 403, and saves nothing, whenever
+       `can_write` fails: no order, a cancelled order only, a SoulSear
+       next-of-kin account, staff, or an existing review.
+    3. A valid create saves a review owned by the requester (a forged
+       `user` field is ignored) and returns the card under its
+       `review-<pk>` id plus the out-of-band summary.
+  - The rest was built and tested normally:
+    - `POST /reviews/product/<pk>/` (`reviews:create`), login required
+    - a `_slot.html` partial shared by the page and the create response
+    - a `_form.html` partial with DaisyUI star radios, errors beside
+      each field, and an HTMX post that swaps `#review-slot`
+    - invalid posts re-render the form with what was typed and send no
+      out-of-band summary
+    - a losing simultaneous submission gets 403
+    - "Pick a rating from 1 to 5 stars." for a missing or out-of-range
+      rating
+    - the form replaces the Phase 1 placeholder
+  - The suite went from 402 to 428 passing, and Ruff is clean.
+- **Deviations:** No recommendations were overridden. Made without
+  asking: invalid posts answer 200, so HTMX swaps the errors in; a lost
+  simultaneous submission answers 403 rather than a form error; the
+  slot states moved from `detail.html` into `_slot.html`.
+- **Sideways:**
+  - The auto-mode safety check failed with "no verdict" on every shell
+    command, twice. The first time, behavior 2's failing run had to be
+    confirmed by the user before the agent could see it. Files were
+    written with the file tools until the shell came back.
+  - Behavior 1's first run failed on database access, not an
+    assertion, because a ModelForm checks model constraints; the test
+    got the `django_db` mark.
+  - Behavior 3's first run failed on `DoesNotExist`, not an assertion;
+    a count check was put ahead of the lookup.
+  - A test expected the textarea's text right after `>`, but Django
+    adds a newline there. A scripted fix silently didn't apply because
+    of escaping, so it was redone with the Edit tool and checks a regex.
+  - The real `db.sqlite3` was never migrated, and no real browser was
+    opened.
+
+## 2026-10-25 — Product reviews: wiped Phases 1–7 and rebuilt Phase 1 test-first
+
+### Prompts
+1. /implement @prd/product-reviews.md @plans/product-reviews.md implement
+   phase 1
+2. was /tdd properly used to check the phase
+3. delete the implemented phase 1 through 7 and re implement them and
+   update PROMPTS.md, commit the completed phase, and push it to GitHub
+   between each phase
+4. Answers to the agent's two questions: "Rewrite history, force-push"
+   (how to delete) and "Stash and restore (Recommended)" (local edits)
+5. approved,go ahead (the three TDD behaviors)
+6. approved, go ahead (behavior 1's failing test)
+7. approved, go ahead (behavior 1 green; finish `can_write`)
+8. approved, go ahead (behavior 2's failing test)
+9. approved,go ahead (behavior 2 green)
+10. approved,go ahead (behavior 3's failing test)
+11. approved, go ahead (behavior 3 green; finish the phase)
+
+### Summary
+- **Outcome:**
+  - Prompt 1 found Phases 1–7 already built, merged to `main` (PR #5)
+    and green (463 tests), so nothing was changed.
+  - Prompt 2's answer: no. The earlier phase logs show no TDD selection,
+    no failing tests and no approval stops. The `implement` skill's file
+    was last changed after the Phase 1 commit, so the earlier run
+    probably never called `tdd`.
+  - After prompt 3, both `main` and `feature/product-reviews` were reset
+    and force-pushed: `main` to `0db4e4d` (the account-security merge),
+    and the branch to `9bb9f77` (PRD and plan only). Local backup
+    branches `backup/main-with-pr5` and `backup/product-reviews-original`
+    keep the old work. The user's uncommitted edits (`REFLECTION.md`,
+    `db.sqlite3`, `media/products/`) are in `stash@{0}`, to be restored
+    after the rebuild.
+  - Phase 1 was rebuilt with the `tdd` skill. The user approved three
+    behaviors, and each one went through an approved failing test
+    before any code was written:
+    1. `can_write` by order status.
+    2. `summary`: average to one decimal and the count, with `None`
+       when there are no reviews.
+    3. `is_edited` / `is_edited_by_staff`.
+  - The rest of the phase was built and tested normally:
+    - the remaining `can_write` conditions (signed in, not staff, no
+      existing review), in one query
+    - `can_change`, `reviewer_name`, `for_display`, `excluding_author`
+    - the constraints and migration
+    - the `make_order` and `soulsear` fixtures
+    - `ProductDetailView`'s review context
+    - the Reviews section with each slot state and the empty state
+    - the `_summary` and `_review` partials
+    - the read-only admin with adding disabled
+  - The suite went from 352 to 402 passing, and Ruff is clean.
+- **Deviations:**
+  - The user overrode the recommendation to revert on a new branch.
+    They chose to rewrite history and force-push `main`, which also
+    deleted the earlier PROMPTS.md entries for Phases 1–7, despite the
+    log's never-delete rule.
+  - Two choices were put to the user at the failing-test stops and
+    accepted: the summary is a dict, and an edit counts after a gap of
+    more than 1 second (`EDIT_GRACE`).
+  - Made without asking: cards show the full name, falling back to the
+    username; the slot states live inline in `detail.html`; the
+    can-write placeholder reads "Reviews open here soon".
+- **Sideways:**
+  - The first test run passed the two-minute limit and finished in the
+    background.
+  - The reset left `reviews/` behind with only `__pycache__` in it,
+    which was removed.
+  - The sign-in link test expected `/` in `next` to be percent-encoded.
+    Django's `urlencode` keeps it, as the add-to-cart link does, so the
+    test was fixed.
+  - Ruff reformatted `reviews/models.py`.
+  - The real `db.sqlite3` was never migrated, and no real browser was
+    opened.
+
+## 2026-10-24 — Product reviews: turned the PRD into a phased plan
+
+### Prompts
+1. /prd-to-plan @prd/product-reviews.md
+2. Answers to the agent's two breakdown questions: "Fold model into
+   display" (granularity) and "Match existing plans (Recommended)"
+   (format)
+3. log the session and update PROMPTS.md with the standard prompt
+
+### Summary
+- **Outcome:** Wrote `plans/product-reviews.md` in the Goal / Tasks /
+  Verification / Out of bounds format of `plans/product-images.md`, with
+  a "Durable Decisions" header (the `reviews` app, the `Review` model, the
+  rules, the URL paths under `/reviews/…` using pks, authorization, and
+  how HTMX swaps the page). It has eight phases:
+  0. Branch setup.
+  1. A read-only tracer bullet: model, rules, product-page section, admin.
+  2. Create.
+  3. Edit.
+  4. Delete.
+  5. Show more.
+  6. Seed demo reviews.
+  7. Docs and polish.
+  No code was written and nothing is committed. The work is still on
+  `feature/account-security`, so Phase 0 (merge it, then branch
+  `feature/product-reviews` from `main`) is still to do.
+- **Deviations:** One recommendation overridden. The agent proposed Phases
+  0–7 with the model and rules alone as Phase 1 (verified by tests only).
+  The user chose to fold the model into the read-only display, so the
+  first phase cuts through every layer. Edit/Delete and Show more/Seed
+  stay split, thinner than the PRD's five-step build order. The format
+  question went with the recommendation. Three calls the agent made
+  without asking, flagged after writing:
+  - "Show more" is public. The PRD says all review endpoints require
+    login, but story 3 is for signed-out shoppers too.
+  - Adding reviews in the Django admin is disabled, because it would skip
+    the purchase rule.
+  - An author's own delete brings back the "only buyers" line, not the
+    form, if their order has since been cancelled.
+  No follow-up questions were asked.
+- **Sideways:** The first exploration command failed because it looked for
+  a `plans/account-security*.md` that doesn't exist. The Account Security
+  Center has a PRD but no plan file. The agent re-ran the exploration
+  without it. Nothing else went wrong.
+
+## 2026-10-24 — Product reviews: grilled the design, wrote the PRD
+
+### Prompts
+1. /grill-me ThoughtTronix wants customers to leave product reviews. The
+   completed feature must include these business requirements: A customer
+   can leave one review per product. Each review includes a rating and a
+   written comment. A customer can leave a review only for a product they
+   have purchased. SoulSear owners are eligible but their next of kin are
+   not. Customers can edit and delete only their own reviews. Staff can
+   edit and delete any review. Creating, editing, or deleting a review
+   should update smoothly without reloading the full page or causing the
+   customer to lose their place.
+2. A (any order that isnt cancelled)
+3. A
+4. A (Whole stars, 1-5) and showing the average and count on the product page
+5. A
+6. A
+7. A
+8. A
+9. A
+10. A
+11. A
+12. A
+13. A
+14. A
+15. A
+16. Keep the seed small (A)
+17. A
+18. /to-prd
+19. yes, add the session log to PROMPTS.md with the standard prompt
+
+### Summary
+- **Outcome:** A 16-question design interview, then
+  `prd/product-reviews.md` (29 user stories, implementation and testing
+  decisions, a five-phase build order, out of scope, further notes). The
+  design: a new `reviews` app; any non-cancelled order counts as a
+  purchase; whole stars 1–5 with an average and count on the product
+  page; a required 10–2,000 character comment; one review per user and
+  product at a time (unique constraint, real delete); staff moderate
+  inline on the product page, with `updated_by` and a visible "Edited by
+  ThoughtTronix staff" note; staff can't write reviews; in-place HTMX
+  edit, `hx-confirm` delete, out-of-band summary refresh, and "Show more"
+  10 at a time; the Django admin is read-only plus delete. "Next of kin"
+  is satisfied by eligibility belonging to the ordering account, with no
+  new modelling. No code was written and nothing is committed.
+  `plans/product-reviews.md` is not written yet. The work is still on
+  `feature/account-security`; a new branch from `main` is still needed.
+- **Deviations:** One recommendation overridden. In question 15 the user
+  kept the seed small (A) instead of the recommended extra background
+  customers plus a SoulSear order dated outside the dashboard window. So
+  "Show more" and the SoulSear rule are covered by tests only, not
+  visible in the demo. In question 1 the user picked A but didn't answer
+  the follow-up (keep a review if its order is cancelled later). The
+  agent took its own recommendation (keep it) and said so. Question 3 was
+  answered with the recommended option plus the suggested summary. The
+  closing summary listed two small calls the agent made without asking:
+  sign-in returns via `?next=`, and review endpoints are login-only and
+  return partials, like the cart. The PRD added two more, reported after
+  it was written: your own review is left out of the "other reviews"
+  list, and Cancel restores the card while editing. No follow-up
+  questions were asked.
+- **Sideways:** The question 14 recommendation (give one product just
+  over 10 reviews so "Show more" can be demoed) turned out to be
+  impossible. A later look at the seed found only 10 non-staff customers
+  (one review each per product means at most 10 per product), randomly
+  generated background orders, and no Defense or SoulSear sales at all.
+  The agent corrected this openly and turned it into question 15.
+  Question 14 also included a muddled aside about "tests never invoke
+  the seed" that wasn't needed. Question 15's option C was rewritten
+  mid-answer ("Wait, no") after the agent realised a cancelled SoulSear
+  order couldn't support a review. As with the earlier PRDs, this one adds
+  a Testing Decisions section, names a few modules despite the
+  template's no-paths rule, and reuses the invented "Commissioned by
+  ThoughtTronix Customer Trust" line.
+
 ## 2026-10-23 — Account Security Center: built Phase 4 (secondary email)
 
 ### Prompts

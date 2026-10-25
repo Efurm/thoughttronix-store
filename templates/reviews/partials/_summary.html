@@ -1,0 +1,10 @@
+{# The rating summary. Include with oob=True to swap it out-of-band. #}
+<p id="review-summary" class="text-lg" {% if oob %}hx-swap-oob="true"{% endif %}>
+  {% if summary.count %}
+    <span class="text-warning">★</span>
+    <span class="font-semibold">{{ summary.average|floatformat:1 }}</span>
+    <span class="opacity-70">· {{ summary.count }} review{{ summary.count|pluralize }}</span>
+  {% else %}
+    <span class="opacity-70">No reviews yet.</span>
+  {% endif %}
+</p>

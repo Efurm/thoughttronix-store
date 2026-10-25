@@ -57,4 +57,28 @@
       {% endif %}
     </div>
   </div>
+
+  <section id="reviews" class="mt-12 border-t border-base-300 pt-8">
+    <div class="flex flex-wrap items-baseline justify-between gap-4">
+      <h2 class="text-2xl font-bold">Reviews</h2>
+      {% include "reviews/partials/_summary.html" with summary=review_summary %}
+    </div>
+
+    <div id="review-slot" class="mt-6">
+      {% include "reviews/partials/_slot.html" %}
+    </div>
+
+    <div id="review-list" class="mt-6 space-y-4">
+      {% for review in reviews %}
+        {% include "reviews/partials/_review.html" %}
+      {% empty %}
+        <div class="py-12 text-center">
+          <p class="text-5xl">💭</p>
+          <p class="mt-4 text-xl font-semibold">{% if own_review %}No one else has weighed in yet{% else %}No reviews yet{% endif %}</p>
+          <p class="mt-2 opacity-70">Every thought counts. Especially the first.</p>
+        </div>
+      {% endfor %}
+      {% if has_more_reviews %}{% include "reviews/partials/_more_button.html" %}{% endif %}
+    </div>
+  </section>
 {% endblock %}
