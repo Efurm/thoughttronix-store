@@ -28,6 +28,65 @@ Each entry has this shape:
     - **Deviations:** recommendations overridden, follow-up questions asked
     - **Sideways:** failures, wrong turns, and how they were caught
 
+## 2026-10-25 — Product reviews: rebuilt Phase 2 (create) test-first
+
+### Prompts
+1. yes (start Phase 2)
+2. yes (the three TDD behaviors)
+3. yes (behavior 1's failing test)
+4. yes (behavior 1 green; on to behavior 2)
+5. run the test
+6. the 5 red results are confirmed
+7. approved (behavior 2's failing test)
+8. yes (behavior 2 green; on to behavior 3)
+9. yes (behavior 3's failing test)
+10. yes (behavior 3 green; finish the phase)
+11. do it (retry after the shell outage)
+
+### Summary
+- **Outcome:**
+  - The user approved three behaviors, and each went through an
+    approved failing test before any code:
+    1. `ReviewForm` trims the comment, then requires 10–2,000
+       characters, with its own messages.
+    2. The create endpoint answers 403, and saves nothing, whenever
+       `can_write` fails: no order, a cancelled order only, a SoulSear
+       next-of-kin account, staff, or an existing review.
+    3. A valid create saves a review owned by the requester (a forged
+       `user` field is ignored) and returns the card under its
+       `review-<pk>` id plus the out-of-band summary.
+  - The rest was built and tested normally:
+    - `POST /reviews/product/<pk>/` (`reviews:create`), login required
+    - a `_slot.html` partial shared by the page and the create response
+    - a `_form.html` partial with DaisyUI star radios, errors beside
+      each field, and an HTMX post that swaps `#review-slot`
+    - invalid posts re-render the form with what was typed and send no
+      out-of-band summary
+    - a losing simultaneous submission gets 403
+    - "Pick a rating from 1 to 5 stars." for a missing or out-of-range
+      rating
+    - the form replaces the Phase 1 placeholder
+  - The suite went from 402 to 428 passing, and Ruff is clean.
+- **Deviations:** No recommendations were overridden. Made without
+  asking: invalid posts answer 200, so HTMX swaps the errors in; a lost
+  simultaneous submission answers 403 rather than a form error; the
+  slot states moved from `detail.html` into `_slot.html`.
+- **Sideways:**
+  - The auto-mode safety check failed with "no verdict" on every shell
+    command, twice. The first time, behavior 2's failing run had to be
+    confirmed by the user before the agent could see it. Files were
+    written with the file tools until the shell came back.
+  - Behavior 1's first run failed on database access, not an
+    assertion, because a ModelForm checks model constraints; the test
+    got the `django_db` mark.
+  - Behavior 3's first run failed on `DoesNotExist`, not an assertion;
+    a count check was put ahead of the lookup.
+  - A test expected the textarea's text right after `>`, but Django
+    adds a newline there. A scripted fix silently didn't apply because
+    of escaping, so it was redone with the Edit tool and checks a regex.
+  - The real `db.sqlite3` was never migrated, and no real browser was
+    opened.
+
 ## 2026-10-25 — Product reviews: wiped Phases 1–7 and rebuilt Phase 1 test-first
 
 ### Prompts

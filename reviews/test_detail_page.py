@@ -134,16 +134,19 @@ def test_signed_out_visitor_is_asked_to_sign_in_and_come_back(client, product):
     assert f'href="{login}?next={product.get_absolute_url()}"' in content
 
 
-def test_buyer_who_has_not_reviewed_sees_the_writing_placeholder(
+def test_buyer_who_has_not_reviewed_sees_the_form(
     client, customer, product, make_order
 ):
     make_order(customer, product)
     client.force_login(customer)
 
     response = detail(client, product)
+    content = response.content.decode()
 
     assert response.context["can_write_review"] is True
-    assert "Reviews open here soon" in response.content.decode()
+    assert f'hx-post="{reverse("reviews:create", args=[product.pk])}"' in content
+    assert content.count('type="radio" name="rating"') == 5
+    assert 'name="comment"' in content
 
 
 def test_customer_who_has_not_bought_is_told_only_buyers_review(
@@ -177,7 +180,7 @@ def test_staff_see_no_slot_message(client, staff_user, product, make_order):
 
     assert "Sign in to leave a review" not in content
     assert "Only customers who've bought" not in content
-    assert "Reviews open here soon" not in content
+    assert 'name="comment"' not in content
 
 
 def test_own_review_sits_in_the_slot_and_not_in_the_list(
@@ -197,7 +200,7 @@ def test_own_review_sits_in_the_slot_and_not_in_the_list(
     assert response.context["reviews"] == [other]
     assert content.index("Your review") < content.index("My own thought.")
     assert content.count("My own thought.") == 1
-    assert "Reviews open here soon" not in content
+    assert 'name="comment"' not in content
 
 
 def test_own_review_shows_even_after_the_order_is_cancelled(
