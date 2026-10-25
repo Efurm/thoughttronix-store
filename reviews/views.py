@@ -53,3 +53,61 @@ class ReviewCreateView(LoginRequiredMixin, View):
             "reviews/partials/_slot.html",
             {"product": product, **context},
         )
+
+
+class ChangeReviewMixin(LoginRequiredMixin):
+    """Base for endpoints that act on one review: its author or staff only."""
+
+    def get_review(self):
+        """The review at ``pk``, or 403 unless the user ``can_change`` it."""
+        review = get_object_or_404(Review.objects.for_display(), pk=self.kwargs["pk"])
+        if not review.can_change(self.request.user):
+            raise PermissionDenied
+        return review
+
+
+class ReviewCardView(ChangeReviewMixin, View):
+    """HTMX: one review's card — what Cancel restores."""
+
+    def get(self, request, pk):
+        return render_card(request, self.get_review())
+
+
+class ReviewEditView(ChangeReviewMixin, View):
+    """HTMX: the edit form in the card's place, and saving it.
+
+    GET swaps the card for the pre-filled form. A valid POST records the
+    editor in ``updated_by`` and swaps the saved card back, with the
+    summary out of band; an invalid one swaps the form back with its
+    errors and changes nothing.
+    """
+
+    def get(self, request, pk):
+        review = self.get_review()
+        return render_form(request, ReviewForm(instance=review), review)
+
+    def post(self, request, pk):
+        review = self.get_review()
+        form = ReviewForm(request.POST, instance=review)
+        if not form.is_valid():
+            return render_form(request, form, review)
+        form.instance.updated_by = request.user
+        review = form.save()
+        return render_card(
+            request,
+            review,
+            oob_summary=True,
+            summary=Review.objects.summary(review.product),
+        )
+
+
+def render_card(request, review, **context):
+    return render(
+        request, "reviews/partials/_review.html", {"review": review, **context}
+    )
+
+
+def render_form(request, form, review):
+    return render(
+        request, "reviews/partials/_form.html", {"form": form, "editing": review}
+    )

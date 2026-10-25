@@ -1,15 +1,24 @@
-{# The review form. Posts with HTMX and swaps the whole slot: the new card #}
-{# on success, or this form again with its errors beside each field. #}
-<form hx-post="{% url 'reviews:create' product.pk %}"
+{# The review form, for writing and for editing. #}
+{# Writing (no `editing`): posts to create and swaps the whole slot — the #}
+{# new card on success, or this form again with its errors. #}
+{# Editing (`editing` = the review): takes the card's own id and place, #}
+{# posts to edit, and swaps itself for the saved card, or for itself with #}
+{# its errors; Cancel swaps the original card back. #}
+<form {% if editing %}id="review-{{ editing.pk }}"
+      hx-post="{% url 'reviews:edit' editing.pk %}"
+      hx-target="this"
+      hx-swap="outerHTML"{% else %}hx-post="{% url 'reviews:create' product.pk %}"
       hx-target="#review-slot"
-      hx-swap="innerHTML"
+      hx-swap="innerHTML"{% endif %}
       class="card bg-base-100 shadow-sm"
       novalidate>
   <div class="card-body gap-4">
-    <h3 class="card-title">Review the {{ product.name }}</h3>
+    <h3 class="card-title">
+      {% if editing %}Edit {% if editing.user == user %}your{% else %}{{ editing.reviewer_name }}'s{% endif %} review{% else %}Review the {{ product.name }}{% endif %}
+    </h3>
 
     <fieldset>
-      <legend class="label mb-1">Your rating</legend>
+      <legend class="label mb-1">{% if editing and editing.user != user %}Rating{% else %}Your rating{% endif %}</legend>
       <div class="rating rating-lg">
         {% for star in "12345" %}
           <input type="radio" name="{{ form.rating.html_name }}" value="{{ star }}"
@@ -24,7 +33,7 @@
     </fieldset>
 
     <div>
-      <label class="label mb-1" for="{{ form.comment.id_for_label }}">Your thoughts</label>
+      <label class="label mb-1" for="{{ form.comment.id_for_label }}">{% if editing and editing.user != user %}Comment{% else %}Your thoughts{% endif %}</label>
       {{ form.comment }}
       <p class="mt-1 text-xs opacity-60">10 to 2,000 characters. Plain text; line breaks are kept.</p>
       {% for error in form.comment.errors %}
@@ -37,7 +46,15 @@
     {% endfor %}
 
     <div class="card-actions justify-end">
-      <button type="submit" class="btn btn-primary">Post review</button>
+      {% if editing %}
+        <button type="button" class="btn btn-ghost"
+                hx-get="{% url 'reviews:card' editing.pk %}"
+                hx-target="closest form"
+                hx-swap="outerHTML">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save changes</button>
+      {% else %}
+        <button type="submit" class="btn btn-primary">Post review</button>
+      {% endif %}
     </div>
   </div>
 </form>

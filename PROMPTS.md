@@ -28,6 +28,52 @@ Each entry has this shape:
     - **Deviations:** recommendations overridden, follow-up questions asked
     - **Sideways:** failures, wrong turns, and how they were caught
 
+## 2026-10-25 — Product reviews: rebuilt Phase 3 (edit) test-first
+
+### Prompts
+1. yes (start Phase 3)
+2. yes (the three TDD behaviors)
+3. yes (behavior 1's failing test)
+4. yes (behavior 1 green; on to behavior 2)
+5. yes (behavior 2's failing test)
+6. yes (behavior 2 green; on to behavior 3)
+7. yes (behavior 3's failing test)
+8. yes (behavior 3 green; finish the phase)
+
+### Summary
+- **Outcome:**
+  - The user approved three behaviors, and each went through an
+    approved failing test before any code:
+    1. Another customer gets 403 on the edit form, the save and cancel,
+       and the review is unchanged. This is a shared
+       `ChangeReviewMixin.get_review()` that asks `can_change`.
+    2. A valid edit saves, sets `updated_by` to the acting user, and
+       returns the card with "Edited" (author) or "Edited by
+       ThoughtTronix staff" (staff), plus the out-of-band summary.
+    3. An invalid edit saves nothing and returns the form under the
+       card's own `review-<pk>` id, with the error, what was typed, and
+       no out-of-band summary.
+  - The rest was built and tested normally:
+    - `GET /reviews/<pk>/edit/` swaps in the pre-filled form, and
+      `GET /reviews/<pk>/` (`reviews:card`) is what Cancel restores
+    - `_form.html` gained an edit mode: it takes the card's id and
+      place, has Save and Cancel, and is titled "Edit your review" or
+      "Edit <name>'s review"
+    - an Edit button on the card, shown through a `can_change` template
+      filter (`review_extras`), so the page and the server ask the same
+      rule
+    - tests for the signed-out redirect, 404s, the pre-filled form,
+      cancel, the notes as signed-out shoppers see them, editing after
+      a cancelled order, and who sees the Edit button
+  - The suite went from 428 to 449 passing, and Ruff is clean.
+- **Deviations:** No recommendations were overridden and no follow-up
+  questions were asked. Made without asking: Cancel's card endpoint
+  requires `can_change` (as the plan says), though the card is public
+  on the page; the staff form names whose review it is.
+- **Sideways:** Nothing failed. One test used the bare string
+  `"CANCELLED"` and was tidied to `Order.Status.CANCELLED`. The real
+  `db.sqlite3` was never migrated, and no real browser was opened.
+
 ## 2026-10-25 — Product reviews: rebuilt Phase 2 (create) test-first
 
 ### Prompts
