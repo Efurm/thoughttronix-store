@@ -1,0 +1,13 @@
+{% autoescape off %}Hi {{ user.username }},
+
+{{ address }} was just added as the secondary email on your ThoughtTronix
+account. It can't reset your password until someone confirms it from that
+inbox.
+
+If you made this change, there's nothing more to do.
+
+If you didn't, someone may be signed in to your account. Remove the
+address and change your password from your Account Security Center.
+
+ThoughtTronix — Your Thoughts, Our Business.
+{% endautoescape %}

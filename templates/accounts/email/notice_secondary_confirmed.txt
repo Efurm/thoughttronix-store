@@ -1,0 +1,12 @@
+{% autoescape off %}Hi {{ user.username }},
+
+{{ address }} was just confirmed as the secondary email on your
+ThoughtTronix account. It can now be used to reset your password.
+
+If you made this change, there's nothing more to do.
+
+If you didn't, someone else may control that inbox. Remove the address
+and change your password from your Account Security Center.
+
+ThoughtTronix — Your Thoughts, Our Business.
+{% endautoescape %}

@@ -20,6 +20,8 @@ A server-rendered Django 6 storefront and back office. The PRDs in `prd/` and th
 - `accounts/` — custom user model (`accounts.User`, `AbstractUser` + nullable
   `job_title`). Roles are Django's own vocabulary: customers are plain users,
   employees are `is_staff`, the admin is `is_superuser`. No role field, no Groups.
+  Also the Account Security Center (`/accounts/security/`) and its mail
+  (`security.py`)
 - `products/` — catalog (`Category`, `Product`, `Tag`), its back-office CRUD,
   product images (`images.py`, the upload gatekeeper), and the `seed` command
 - `orders/` — cart, checkout, orders, coupons (seasonal discount codes),
@@ -41,12 +43,14 @@ A server-rendered Django 6 storefront and back office. The PRDs in `prd/` and th
 Logic lives in models and managers; cross-model workflows get a service
 module; views stay thin.
 
-Exactly three deliberate deep modules, docstrings and type hints on every
+Exactly four deliberate deep modules, docstrings and type hints on every
 public function: `orders/services.py` (`place_order`, and `quote_coupon`
 — the one judge of seasonal discount codes), `dashboard/queries.py`
-(the dashboard's aggregations), and `products/images.py`
+(the dashboard's aggregations), `products/images.py`
 (`prepare_product_image` — the one judge of product image files; the
-back-office image form and the seed both go through it).
+back-office image form and the seed both go through it), and
+`accounts/security.py` (the one judge of account email workflows;
+`send_security_notice` mails every security notice to the primary).
 
 Product image files are only ever replaced or removed through
 `Product.replace_image` / `remove_image`, which delete the old file after

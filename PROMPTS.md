@@ -28,6 +28,275 @@ Each entry has this shape:
     - **Deviations:** recommendations overridden, follow-up questions asked
     - **Sideways:** failures, wrong turns, and how they were caught
 
+## 2026-10-23 — Account Security Center: built Phase 4 (secondary email)
+
+### Prompts
+1. @prd/account-security.md @plans/account-security.md Do Phase 4.
+2. how can I manually verify this in the broswer
+3. log the session in PROMPTS.md with the standard prompt
+
+### Summary
+- **Outcome:** Built step 4 of the PRD's build order on
+  `feature/account-security`. `accounts.User` gained a nullable
+  `secondary_email` and a `secondary_email_verified` flag. Migration
+  `0003` adds them, plus a conditional unique constraint on the
+  lowercased secondary that applies only where it is verified, so a
+  pending address reserves nothing. A `UserQuerySet.with_address` lookup
+  (primary or verified secondary, ignoring capitals) is now shared by
+  signup, the new secondary form, `User.clean`, confirmation and
+  password reset. Reset now matches verified secondaries too, never
+  pending ones, and still mails the address typed. `User.clean` holds
+  the two cross-field rules. Model methods set (always unverified),
+  remove and confirm the secondary. Confirmation runs in a transaction,
+  re-checks for a claim by another account, and turns an
+  `IntegrityError` from the constraint into a plain error.
+  `accounts/security.py` gained signed confirmation tokens (`signing`
+  with a salt and `SECONDARY_EMAIL_CONFIRM_MAX_AGE`, read through
+  environs, default 24 hours, listed in `.env.example`), the request,
+  resend, confirm and remove workflows, and four new notices (added,
+  replaced, confirmed, removed) that name the address. New pages: a
+  password-guarded add/replace form, Remove and "Send the link again"
+  POST buttons on the hub, and a confirmation page that works signed
+  out, where GET only shows a Confirm button and POST confirms. The hub
+  shows the secondary with a Pending or Verified badge. The admin shows
+  the secondary fields read-only; the primary stays editable there.
+  Forty-seven new tests were added. The full suite passes (352) and ruff
+  is clean. The migration was applied to the tracked `db.sqlite3`, as in
+  Phases 1 and 2. Nothing is committed.
+- **Deviations:** No recommendations were offered, so none were
+  overridden. Small calls the agent made without asking: replacing the
+  secondary with the address it already holds is refused (the resend
+  button covers that case), the admin shows the secondary read-only so
+  every change goes through the password check and the primary notice,
+  and a link that has already been used shows "no longer works" rather
+  than a second success page. The one follow-up question asked how to
+  verify the phase in the browser. It was answered with a ten-step
+  walkthrough using the seeded `customer` account and the console email
+  output: adding with a wrong and then a right password, the refused
+  addresses, resend and the cooldown, opening the link signed out
+  without confirming, confirming, resetting through the secondary,
+  replacing (old link dies, reset ignores the pending address), a
+  pending address not blocking someone else's signup and then failing
+  to confirm, removing, and staff and admin access.
+- **Sideways:** `plans/account-security.md` still does not exist. The
+  agent worked from the PRD's build order again and said so. The first
+  migration attempt failed because a manager built with
+  `UserManager.from_queryset(...)` cannot be serialized. The agent fixed
+  it with a named `StoreUserManager` subclass. Two Bash heredocs (the
+  security module and the tests) failed with a shell quoting error
+  before writing anything. The agent checked `git status`, then used the
+  Write tool and a scratch file appended with `cat`. While writing the
+  confirmation view, the agent noticed that merging fresh context into
+  the POST response would keep a stale "no longer works" error after a
+  successful confirmation. It fixed this before any test ran. The full
+  suite outlasted the foreground limit and ran in the background. The
+  agent answered the browser question before that run finished and said
+  it was still running; it later reported 352 passing. The agent never
+  viewed the pages in a browser. The walkthrough lists expected results,
+  not ones the agent observed.
+
+## 2026-10-23 — Account Security Center: built Phase 3 (forgotten password)
+
+### Prompts
+1. @prd/account-security.md @plans/account-security.md Do Phase 3.
+2. How can I manually verify this phase in the browser?
+3. log the session in PROMTPS.md with the standard prompt
+
+### Summary
+- **Outcome:** Built step 3 of the PRD's build order on
+  `feature/account-security`. Django's stock four-step reset flow now
+  lives under `/accounts/password-reset/` (request, "check your inbox",
+  the emailed link, complete). It works signed out, is styled with
+  DaisyUI and has a "This link no longer works" state for bad links.
+  `ResetPasswordForm` matches the typed address against active users'
+  primary emails, ignoring capitals (primaries only at this stage). It
+  sends the link to the address as typed and applies the cooldown.
+  Unknown addresses get the same response. `accounts/security.py` gained
+  `claim_mail_cooldown`, an atomic 60-second `cache.add` per lowercased
+  address, and a `PASSWORD_RESET` notice that is sent when the reset
+  completes. `PASSWORD_RESET_TIMEOUT` is read through environs, defaults
+  to one hour, and is listed in `.env.example`. The login page links to
+  "Forgot your password?". There is no auto-login after a reset. An
+  autouse fixture in `conftest.py` clears the cache around every test.
+  Seventeen new tests were added. The full suite passes (305) and ruff is
+  clean. Nothing is committed.
+- **Deviations:** No recommendations were offered, so none were
+  overridden. The one follow-up question asked how to verify the phase in
+  the browser. It was answered with a nine-step walkthrough using the
+  seeded `customer` account and the console email output: the login
+  link, matching ignoring capitals, the cooldown, unknown addresses,
+  using the link, signing in with the new password, a reused link, and a
+  link killed by a password change. It also told the user how to restore
+  the demo password and how to shorten the timeout through `.env` to see
+  expiry.
+- **Sideways:** `plans/account-security.md` still does not exist. The
+  agent again worked from the PRD's build order and said so. The agent's
+  first draft of a cooldown "lapses" test was muddled. The agent caught it
+  before running anything and replaced it with a test that the claim uses
+  a 60-second timeout. The full-suite run went over the two-minute
+  foreground limit and finished in the background, all passing. An
+  attempt to wait on it with `sleep` was blocked by the harness, and the
+  agent waited for the completion notice instead. The editing script
+  printed a harmless `SyntaxWarning` about an escape sequence. The agent
+  checked that the regex in the test file came out correct. The test of
+  the one-hour default fails if a local `.env` sets
+  `PASSWORD_RESET_TIMEOUT`, and the user was warned. The agent never
+  viewed the pages in a browser. The walkthrough lists expected results,
+  not ones the agent observed.
+
+## 2026-10-23 — Account Security Center: built Phase 2 (hub and change password)
+
+### Prompts
+1. @prd/account-security.md @plans/account-security.md Do Phase 2.
+2. How can I manually verify this phase in the browser?
+3. log the session and update PROMPTS.md with the standard prompt
+
+### Summary
+- **Outcome:** Built step 2 of the PRD's build order on
+  `feature/account-security`. Added `accounts/security.py`, the fourth
+  deep module. So far it holds a `Notice` enum (one value,
+  `PASSWORD_CHANGED`) and `send_security_notice`, which mails the primary
+  email using one plain-text template per notice
+  (`templates/accounts/email/notice_password_changed.txt`). A user with
+  no primary gets no notice. Added the Account Security Center hub at
+  `/accounts/security/`. It shows the primary email (or a "No primary
+  email on file" state), a designed "No backup email yet" empty state
+  where the secondary will go, and a link to change password. Change
+  password uses Django's stock `PasswordChangeView`, its form and its
+  done page, styled with DaisyUI. It sends the "password changed" notice
+  and keeps the current session while signing out the others. The
+  navbar now shows a "Security" link to every signed-in user. `CLAUDE.md`
+  now says "exactly four" deep modules and mentions the Security Center
+  under `accounts/`. Sixteen new tests were added. The full suite passes
+  (288) and ruff is clean. Nothing is committed.
+- **Deviations:** No recommendations were offered, so none were
+  overridden. The one follow-up question asked how to verify the phase in
+  the browser. It was answered with a six-part walkthrough using the
+  seeded demo accounts: signed-out redirects, the hub, a wrong current
+  password, other sessions signed out after a change, staff on the
+  storefront page, and a user with no email.
+- **Sideways:** `plans/account-security.md` still does not exist. As in
+  Phase 1, the agent worked from the PRD's build order and told the user
+  so. The first attempt to add imports to the test file used an inline
+  `python` heredoc, which failed because `python` is not on the PATH in
+  Git Bash. Ruff caught the undefined names, and the imports were then
+  added with the Edit tool. Clearing the cache between tests was left
+  for Phase 3, where the cooldown first needs it. The agent never viewed
+  the pages in a browser. The walkthrough lists expected results, not
+  ones the agent observed.
+
+## 2026-10-22 — Account Security Center: built Phase 1 (email at signup)
+
+### Prompts
+1. @prd/account-security.md @plans/account-security.md Do Phase 1.
+2. How can I manually verify this phase in the browser?
+3. write the session log and update PROMPTS.md with the standard prompt
+
+### Summary
+- **Outcome:** Built step 1 of the PRD's build order on
+  `feature/account-security`. The signup form has a required Email
+  field and rejects an address already in use, ignoring capitals, with
+  a plain-language error. `User` gained a conditional unique constraint
+  on the lowercased `email` (blank emails are exempt), with migration
+  `0002_user_unique_primary_email`, applied to the dev database. The
+  `customer` and `employee` fixtures now carry `customer@example.com`
+  and `employee@example.com`. The "other" users in the orders tests keep
+  blank emails, which shows that case stays valid. Four new tests were
+  added: email required, duplicate rejected ignoring capitals, the
+  database rejecting a capitals-only duplicate, and two blank emails
+  coexisting. The accounts tests pass (13/13) and ruff is clean. Nothing
+  is committed.
+- **Deviations:** No recommendations were offered, so none were
+  overridden. The one follow-up question asked how to verify the phase in
+  the browser, and was answered with a seven-step walkthrough covering
+  signup and the Django admin.
+- **Sideways:** `plans/account-security.md` does not exist (the
+  2026-10-19 session never wrote it). The agent did not stop to ask: it
+  worked from the PRD's build order and told the user so. The first
+  full-suite run went over the two-minute foreground limit and finished
+  in the background with 272 passed and 1 failed. The failing test
+  expected `Fresh@Example.com` to be stored exactly as typed, but
+  Django's `AbstractUser.clean()` lowercases the domain. The test was
+  changed to expect `Fresh@example.com`, and only the accounts tests were
+  rerun afterwards, not the full suite. Applying the migration changed
+  the tracked `db.sqlite3` grading snapshot, which now shows as modified.
+  The phase was never checked in a browser by the agent. The admin step
+  in the walkthrough (a duplicate email showing a form error rather than
+  a crash) is an expectation based on Django's constraint validation,
+  not something the agent tested.
+
+## 2026-10-19 — Account Security Center: grilled the design, wrote the PRD
+
+### Prompts
+1. /grill-me design a Account Security Center where Customers should be
+   able to: provide an email address when they create an account,change
+   their password,reset a forgotten password through email,and add a
+   secondary email address to their account.
+2. A (email required at signup)
+3. A (unique, ignoring capitals)
+4. A (one `secondary_email` field on `User`)
+5. A (secondary is a recovery address; the link goes to the address typed)
+6. B (verify the secondary only)
+7. C (primary fixed after signup)
+8. A (add, replace, remove, resend)
+9. A (current password to add or replace the secondary)
+10. A (security notices to the primary)
+11. A (every signed-in user, storefront layout)
+12. A (hub page plus focused pages)
+13. A (reset link 1 hour, confirmation 24 hours)
+14. A, combined with C (confirmation without sign-in, by POST button)
+15. C (conditional unique constraint, plus emails on the shared fixtures)
+16. B (only verified secondaries reserve an address)
+17. A (60-second per-address cooldown through the cache)
+18. A (fourth deep module, `accounts/security.py`)
+19. A (four build phases)
+20. /to-prd
+21. Append a session log to PROMPTS.md at the repo root, under today's
+    date, newest entry at the top. Record every prompt I gave you this
+    session, in order, including any corrections. End the entry with a
+    short summary: the outcome, any places where I deviated from a
+    recommended answer or asked follow-up questions, and anything that
+    went sideways.
+
+### Summary
+- **Outcome:** An 18-question design interview, then
+  `prd/account-security.md` (30 user stories, implementation and testing
+  decisions, out of scope, further notes). Neither file is committed, and
+  no code was written. `plans/account-security.md` is not written yet.
+  The work is still on `feature/product-images`; a new branch from
+  `main` is still needed.
+- **Deviations:** None. Every answer took the recommended option,
+  including "A, combined with C" in question 13, which was the combined
+  recommendation. No follow-up questions were asked. The closing offer to
+  write both the PRD and the plan got a `/to-prd` instead, so only the
+  PRD was written.
+- **Sideways:** Question 2 settled "unique across primary and secondary"
+  before the storage was chosen. One database constraint cannot span two
+  fields, so cross-field uniqueness moved into `User.clean` in question 3.
+  Question 14 was added mid-interview after a codebase check found that
+  the `conftest.py` fixtures and `orders/tests.py` create users with blank
+  emails, which a plain unique constraint would reject. That is why the
+  constraint is conditional. The PRD departs from the `/to-prd` template
+  in three ways: it adds a Testing Decisions section (matching the
+  product-images PRD), it names a few files despite the template's
+  no-paths rule, and its "Commissioned by ThoughtTronix Customer Trust"
+  line was invented for flavor. The session began on 2026-10-18 and
+  crossed midnight; the entry uses the date it was written.
+
+## 2026-10-05 — Session-log request only (no code work this session)
+
+### Prompts
+1. write the session log with the standard prompt in the PROMPTS.md header.
+
+### Summary
+- **Outcome:** This entry is the only change. The session opened with the
+  log request, so there was no other work to record. The uncommitted edit
+  to `REFLECTION.md` was already in the working tree when the session
+  started; this session did not make it or touch it.
+- **Deviations:** None. No recommendations were made and no follow-up
+  questions were asked.
+- **Sideways:** Nothing went wrong.
+
 ## 2026-10-05 — Product images: grilled the design, built all six phases, PR #2 open
 
 ### Prompts
