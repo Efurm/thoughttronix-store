@@ -10,6 +10,7 @@ from decimal import Decimal
 
 from django import forms
 
+from .images import prepare_product_image
 from .models import Category, Product, Tag
 
 
@@ -55,6 +56,31 @@ class ProductForm(StyledModelForm):
             "is_available",
             "is_featured",
         ]
+
+
+class ProductImageForm(forms.Form):
+    """The back-office image card's one field.
+
+    A plain ``FileField``, not ``forms.ImageField``: Django's own image
+    check would answer first with its generic message. Every rule — and
+    every plain-language rejection — comes from products/images.py, and
+    a valid form's cleaned ``image`` is the prepared WebP, ready to store.
+    """
+
+    image = forms.FileField(
+        label="Image file",
+        help_text="PNG, JPEG, or WebP · up to 5 MB · at least 600 × 600 pixels.",
+        error_messages={"required": "Choose an image file to upload."},
+        widget=forms.FileInput(
+            attrs={
+                "class": "file-input w-full",
+                "accept": "image/png,image/jpeg,image/webp",
+            }
+        ),
+    )
+
+    def clean_image(self):
+        return prepare_product_image(self.cleaned_data["image"])
 
 
 class CategoryForm(StyledModelForm):

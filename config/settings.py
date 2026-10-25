@@ -136,6 +136,14 @@ STATIC_URL = "static/"
 STATICFILES_DIRS = [BASE_DIR / "assets"]
 
 
+# Uploaded media (product images). Served by runserver only while DEBUG is
+# on, like static files; serving under DEBUG=False is a deployment task.
+
+MEDIA_URL = "media/"
+
+MEDIA_ROOT = BASE_DIR / "media"
+
+
 # Tailwind CSS + DaisyUI (django-tailwind-cli, standalone binary — no Node.js)
 
 TAILWIND_CLI_USE_DAISY_UI = True

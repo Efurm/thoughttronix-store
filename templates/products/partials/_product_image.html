@@ -1,0 +1,42 @@
+{# The product image card (HTMX): preview, upload/replace, remove. #}
+{# Its own form, outside the details form, so it swaps only itself. #}
+<div id="product-image" class="card bg-base-100 shadow-md">
+  <div class="card-body">
+    <h2 class="card-title">Image</h2>
+
+    <figure class="aspect-[4/3] overflow-hidden rounded-box bg-base-200">
+      <img src="{{ product.display_image_url }}" alt="{{ product.name }}" class="h-full w-full object-contain" />
+    </figure>
+    {% if not product.has_image %}
+      <p class="text-sm opacity-70">No image yet — customers see this category placeholder.</p>
+    {% endif %}
+
+    {% if status %}
+      <div role="status" class="alert alert-success alert-soft text-sm">{{ status }}</div>
+    {% endif %}
+
+    <form hx-post="{% url 'products:manage_product_image' product.pk %}"
+          hx-encoding="multipart/form-data"
+          hx-target="#product-image"
+          hx-swap="outerHTML"
+          class="space-y-3">
+      {% include "products/partials/_field.html" with field=image_form.image %}
+      <div class="flex justify-end">
+        <button type="submit" class="btn btn-primary">
+          {% if product.has_image %}Replace image{% else %}Upload image{% endif %}
+        </button>
+      </div>
+    </form>
+
+    {% if product.has_image %}
+      <div class="flex justify-end">
+        <button type="button"
+                class="btn btn-ghost btn-sm text-error"
+                hx-post="{% url 'products:manage_product_image_remove' product.pk %}"
+                hx-target="#product-image"
+                hx-swap="outerHTML"
+                hx-confirm="Remove this image?">Remove image</button>
+      </div>
+    {% endif %}
+  </div>
+</div>

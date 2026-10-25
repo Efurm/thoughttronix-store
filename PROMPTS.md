@@ -28,6 +28,124 @@ Each entry has this shape:
     - **Deviations:** recommendations overridden, follow-up questions asked
     - **Sideways:** failures, wrong turns, and how they were caught
 
+## 2026-10-05 — Product images: grilled the design, built all six phases, PR #2 open
+
+### Prompts
+1. /grill-me ThoughtTronix marketing wants real images on the catalog. Two
+   things are not negotiable. Every product must display either its
+   uploaded image when one is available, or the existing placeholder.
+   Missing files and broken image icons are not part of the approved
+   visual identity. Employees will also upload product images through the
+   back office. When an employee provides a file the site cannot use,
+   reject it and explain the problem in plain language. Do not accept the
+   file first and then lose it. The images are in the repository in a
+   folder named product-images
+2. https://github.com/Efurm/thoughttronix-store/tree/main/product-images this
+   is the way though git hub to the images
+3. A, one image per product
+4. A, files on disk
+5. A,server-side existence
+6. A
+7. A, 5MB
+8. B
+9. A
+10. C
+11. A
+12. B
+13. A
+14. A
+15. A
+16. A
+17. B
+18. A
+19. A
+20. A
+21. A
+22. C
+23. B
+24. Yes
+25. Yes
+26. go
+27. merged, continue
+28. yes start phase 1
+29. yes start phase 2
+30. yes
+31. yes
+32. yes
+33. yes
+34. yes
+35. fix the handoff skill path
+36. handoff skill does not work
+37. merged, bring main into this branch
+38. /handoff the next session implements the design we just agreed
+39. write the session log with the standard prompt in the PROMPTS.md header
+
+### Summary
+- **Outcome:** A 21-question grilling settled the design, which was
+  recorded in `prd/product-images.md` and sequenced in
+  `plans/product-images.md`. All six phases were built on
+  `feature/product-images` (one commit per phase, pushed, open as PR #2,
+  not merged). The work covers: `Product.image` and
+  `display_image_url`, which falls back to the placeholder whenever the
+  file is missing; `products/images.py` as the single upload gatekeeper
+  (PNG/JPEG/WebP by content, 5 MB, 600–8000 px, resized to WebP), shared
+  by the back-office HTMX image card and the seed; save-then-delete-on-commit
+  file handling; the image read-only in the admin; list thumbnails; the
+  seed loading 12 of marketing's 13 files (26 MB of PNGs became 1.95 MB of
+  WebP); and docs in `CLAUDE.md`, the README, and the PRD. The suite went
+  from 216 to 269 passing. Also: PR #1 (coupons) was opened and the user
+  merged it; PR #3 moved the handoff skill to the right path and the user
+  merged it; `main` was merged into the feature branch; `HANDOFF.md` was
+  written (left uncommitted).
+- **Deviations:** None overridden. The user took the recommended option on
+  every question (one image; files on disk; a server-side existence check;
+  PNG/JPEG/WebP; 5 MB; 4:3 contain; 600–8000 px; a separate image form;
+  save then delete; slug-plus-suffix names; the seed copies from
+  `product-images/`; SyncRest "No Text"; SoulSear image on Mark II;
+  DEBUG-only media; shrink to WebP; admin read-only; a shared gatekeeper;
+  merge coupons first; the seven specific messages; an HTMX card; a list
+  thumbnail). Follow-ups: the user supplied the GitHub link when the
+  folder wasn't found locally, and reported the handoff skill still not
+  working after the fix. The `/handoff` arguments said the next session
+  would "implement the design", but it was already built, so the agent
+  wrote the handoff as verify-and-close-out instead and said so.
+  Calls made without asking: four small departures recorded in the PRD
+  (no lazy loading on the detail page, a numberless message for images
+  too big for Pillow to measure, damaged files getting the "can't open"
+  message, MPO accepted as JPEG), plus `alt=""` on list thumbnails.
+- **Sideways:**
+  - *The images folder.* `product-images/` existed only on GitHub's
+    `main`, uploaded through the web UI, so the agent couldn't find it
+    locally and had to ask.
+  - *A wrong count.* The agent first said 11 of 13 images would be used,
+    then corrected it to 12 (and 22 placeholders, not 23).
+  - *Merge blocked.* Claude Code's auto-mode classifier blocked
+    `gh pr merge` on PR #1, so the user merged it by hand.
+  - *Tests wrong, not the code.* A shrink test used an image that already
+    fit (fixed); one test was misnamed and one assertion meaningless (both
+    fixed before committing); three image-card tests failed because Django
+    HTML-escapes the quotes in messages (fixed by comparing escaped text).
+  - *Edits fixed before running.* A seed edit referenced a nonexistent
+    attribute and a `sed` edit mangled a docstring; both were fixed before
+    anything ran.
+  - *A test-safety gap.* The agent noticed the existing seed tests would
+    have written into the real `media/` folder and gave them a temporary
+    one.
+  - *A conflicting plan task.* The plan's task to write this log entry
+    conflicted with the PROMPTS.md header, so it was skipped until this
+    prompt.
+  - *The handoff fix, twice.* The first `git mv` left the file nested
+    inside the `SKILL.md` folder and was committed that way; it was caught
+    in `git status` and amended before pushing. When the user then said
+    the skill didn't work, the cause was that the fix lived on another,
+    unmerged branch, which the agent hadn't flagged when switching back.
+  - *The dev database was changed without asking.* It was edited by hand
+    in Phase 1 and reseeded in Phase 5; this was reported afterwards, not
+    before.
+  - *Never seen in a browser.* Checks used tests and `curl` against a
+    running dev server, never a browser, so the click-through is still
+    open in PR #2 and in `HANDOFF.md`.
+
 ## 2026-10-01 — Seasonal discount codes: grilled the design, built, pushed
 
 ### Prompts

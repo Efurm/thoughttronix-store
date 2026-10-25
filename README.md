@@ -22,6 +22,12 @@ uv run python manage.py tailwind runserver
 Then open <http://127.0.0.1:8000/>. From clone to browsing the store, this
 takes about two minutes.
 
+The seed also loads marketing's product photos from `product-images/` into
+`media/` (generated, gitignored). Staff upload, replace, and remove product
+images from each product's edit page in the back office. Uploaded images are
+served by the dev server only while `DEBUG` is on, as static files are;
+serving them in production is not configured yet.
+
 ## Demo logins
 
 The `seed` command creates a fixed demo world — the same one every run:
@@ -52,6 +58,7 @@ The `seed` command creates a fixed demo world — the same one every run:
 back-office CRUD), `orders` (cart, checkout, orders — with the
 `place_order` service in `orders/services.py`), and `dashboard` (staff
 analytics, with the aggregations in `dashboard/queries.py`). Project-level
-templates live in `templates/`, static sources in `assets/`. The product
+templates live in `templates/`, static sources in `assets/`, marketing's
+product photos in `product-images/`. The product
 requirements are in `prd/`, the phase-by-phase build plan in `plans/`, and
 `PROMPTS.md` is where AI usage on this codebase gets logged.

@@ -1,7 +1,8 @@
 from django.contrib.messages.views import SuccessMessageMixin
 from django.db.models import Count
-from django.shortcuts import get_object_or_404
-from django.urls import reverse_lazy
+from django.shortcuts import get_object_or_404, render
+from django.urls import reverse, reverse_lazy
+from django.views import View
 from django.views.generic import (
     CreateView,
     DeleteView,
@@ -13,7 +14,7 @@ from django.views.generic import (
 
 from accounts.mixins import StaffRequiredMixin
 
-from .forms import CategoryForm, ProductForm, TagForm
+from .forms import CategoryForm, ProductForm, ProductImageForm, TagForm
 from .models import Category, Product, Tag
 
 
@@ -90,12 +91,16 @@ class ManageProductListView(StaffRequiredMixin, ListView):
 
 
 class ManageProductCreateView(StaffRequiredMixin, SuccessMessageMixin, CreateView):
+    """Create a product, then land on its edit page, where its image goes."""
+
     model = Product
     form_class = ProductForm
     template_name = "products/manage_product_form.html"
-    success_url = reverse_lazy("products:manage_products")
-    success_message = "“%(name)s” created."
+    success_message = "“%(name)s” created. Add its image below."
     extra_context = {"section": "products"}
+
+    def get_success_url(self):
+        return reverse("products:manage_product_update", kwargs={"pk": self.object.pk})
 
 
 class ManageProductUpdateView(StaffRequiredMixin, SuccessMessageMixin, UpdateView):
@@ -105,6 +110,50 @@ class ManageProductUpdateView(StaffRequiredMixin, SuccessMessageMixin, UpdateVie
     success_url = reverse_lazy("products:manage_products")
     success_message = "“%(name)s” saved."
     extra_context = {"section": "products"}
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["image_form"] = ProductImageForm()
+        return context
+
+
+class ProductImageActionView(StaffRequiredMixin, View):
+    """Base for the HTMX image card: act, then re-render the card.
+
+    The card is its own form, separate from the product details, so an
+    upload has exactly two outcomes — saved, or rejected with a plain
+    explanation — and no other field can make a good file get lost.
+    """
+
+    def post(self, request, pk):
+        product = get_object_or_404(Product.objects.select_related("category"), pk=pk)
+        context = self.act(product)
+        context.setdefault("image_form", ProductImageForm())
+        context["product"] = product
+        return render(request, "products/partials/_product_image.html", context)
+
+    def act(self, product):
+        raise NotImplementedError
+
+
+class ManageProductImageUploadView(ProductImageActionView):
+    """Upload or replace: store the prepared image, or show why not."""
+
+    def act(self, product):
+        form = ProductImageForm(self.request.POST, self.request.FILES)
+        if not form.is_valid():
+            return {"image_form": form}
+        product.replace_image(form.cleaned_data["image"])
+        return {"status": "Image saved."}
+
+
+class ManageProductImageRemoveView(ProductImageActionView):
+    """Remove: back to the category placeholder."""
+
+    def act(self, product):
+        if product.image:
+            product.remove_image()
+        return {"status": "Image removed."}
 
 
 class ManageProductDeleteView(StaffRequiredMixin, SuccessMessageMixin, DeleteView):

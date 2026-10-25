@@ -25,6 +25,16 @@ urlpatterns = [
         name="manage_product_update",
     ),
     path(
+        "backoffice/products/<int:pk>/image/",
+        views.ManageProductImageUploadView.as_view(),
+        name="manage_product_image",
+    ),
+    path(
+        "backoffice/products/<int:pk>/image/remove/",
+        views.ManageProductImageRemoveView.as_view(),
+        name="manage_product_image_remove",
+    ),
+    path(
         "backoffice/products/<int:pk>/delete/",
         views.ManageProductDeleteView.as_view(),
         name="manage_product_delete",

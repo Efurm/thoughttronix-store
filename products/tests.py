@@ -3,13 +3,14 @@ from http import HTTPStatus
 
 import pytest
 from django.contrib.auth import get_user_model
-from django.core.management import call_command
+from django.core.management import CommandError, call_command
 from django.db import IntegrityError
 from django.urls import reverse
 from django.utils.html import escape
 
 from orders.models import CartItem, Order, OrderItem
 
+from .management.commands import seed
 from .models import Category, Product, Tag
 
 # --- Model behavior -------------------------------------------------------
@@ -225,7 +226,7 @@ def test_catalog_paginates_at_twelve(client, category):
 # --- The seed command -------------------------------------------------------
 
 
-def test_seed_builds_the_demo_world(db):
+def test_seed_builds_the_demo_world(db, media_root):
     call_command("seed")
 
     assert Category.objects.count() == 6
@@ -252,9 +253,18 @@ def test_seed_builds_the_demo_world(db):
     statuses = set(Order.objects.values_list("status", flat=True))
     assert statuses == set(Order.Status.values)
 
+    # Marketing's 12 mapped images, prepared like any upload; the rest
+    # of the catalog keeps its placeholders.
+    with_images = [p for p in Product.objects.all() if p.has_image]
+    assert len(with_images) == 12
+    assert all(p.image.name.endswith(".webp") for p in with_images)
+    assert Product.objects.get(slug="soulsear-mark-ii").has_image
+    assert not Product.objects.get(slug="seraphine-mini").has_image
 
-def test_seed_is_idempotent(db):
-    call_command("seed")
+
+def test_seed_is_idempotent(db, media_root, django_capture_on_commit_callbacks):
+    with django_capture_on_commit_callbacks(execute=True):
+        call_command("seed")
     first = (
         Category.objects.count(),
         Tag.objects.count(),
@@ -265,7 +275,8 @@ def test_seed_is_idempotent(db):
         OrderItem.objects.count(),
     )
 
-    call_command("seed")
+    with django_capture_on_commit_callbacks(execute=True):
+        call_command("seed")
     second = (
         Category.objects.count(),
         Tag.objects.count(),
@@ -277,3 +288,31 @@ def test_seed_is_idempotent(db):
     )
 
     assert first == second
+    # Reseeding empties media/products/ rather than piling up files.
+    assert len(list((media_root / "products").iterdir())) == 12
+
+
+def test_seed_stops_on_an_unusable_image_before_wiping(
+    db, media_root, tmp_path, monkeypatch, product, make_image
+):
+    images_dir = tmp_path / "product-images"
+    images_dir.mkdir()
+    (images_dir / "tiny.png").write_bytes(make_image(150, 120).read())
+    monkeypatch.setattr(seed, "PRODUCT_IMAGES_DIR", images_dir)
+    monkeypatch.setattr(seed, "PRODUCT_IMAGES", {"tiny.png": "veil"})
+
+    with pytest.raises(CommandError) as caught:
+        call_command("seed")
+
+    assert str(caught.value).startswith(
+        'product-images/tiny.png: "tiny.png" is 150 × 120 pixels.'
+    )
+    assert list(Product.objects.all()) == [product]  # nothing was wiped
+
+
+def test_seed_stops_on_a_missing_image(db, media_root, tmp_path, monkeypatch):
+    monkeypatch.setattr(seed, "PRODUCT_IMAGES_DIR", tmp_path)
+    monkeypatch.setattr(seed, "PRODUCT_IMAGES", {"gone.png": "veil"})
+
+    with pytest.raises(CommandError, match="product-images/gone.png is missing."):
+        call_command("seed")
